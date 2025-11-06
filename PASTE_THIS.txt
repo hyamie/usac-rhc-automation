@@ -1,0 +1,55 @@
+================================================================================
+USAC RHC AUTOMATION - ONE-COMMAND DEPLOYMENT
+================================================================================
+
+STEP 1: Create Supabase Project
+--------------------------------
+1. Go to: https://supabase.com/dashboard
+2. Click "New Project"
+3. Name: usac-rhc-automation
+4. Set a strong database password (SAVE IT!)
+5. Choose region closest to you
+6. Click "Create new project" (wait ~2 minutes)
+
+STEP 2: Get API Keys
+-------------------
+Once project is ready:
+1. Go to Settings → API
+2. Copy these 3 values:
+   - Project URL (starts with https://xxxxx.supabase.co)
+   - anon public key (under "Project API keys")
+   - service_role key (under "Project API keys" - click "Reveal")
+
+STEP 3: Run Deployment
+---------------------
+Copy and paste this command (replace the placeholders with your real values):
+
+cd C:\ClaudeAgents\projects\usac-rhc-automation && deploy.bat "https://YOUR_PROJECT.supabase.co" "YOUR_ANON_KEY" "YOUR_SERVICE_KEY"
+
+
+EXAMPLE (your values will be different):
+---------------------------------------
+cd C:\ClaudeAgents\projects\usac-rhc-automation && deploy.bat "https://abcdefgh.supabase.co" "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3..." "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3..."
+
+
+WHAT HAPPENS NEXT:
+-----------------
+The script will automatically:
+1. ✅ Create GitHub repository and push code
+2. ✅ Deploy database schema to Supabase
+3. ✅ Configure dashboard environment variables
+4. ✅ Deploy to Vercel
+5. ✅ Generate deployment summary
+
+Time: ~5 minutes
+
+AFTER DEPLOYMENT:
+----------------
+3 quick manual steps remain:
+1. Import 3 n8n workflows (5 min)
+2. Update webhook URLs in Vercel (2 min)
+3. Test the system (10 min)
+
+Total: 17 minutes to fully working automation
+
+================================================================================
