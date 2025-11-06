@@ -1,0 +1,251 @@
+{
+  "name": "USAC RHC - Rule Monitor (Weekly)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtDay": 1,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger - Weekly Monday 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.usac.org/rural-health-care/resources/news/",
+        "options": {}
+      },
+      "name": "Scrape USAC News Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse HTML for news items\n// NOTE: This is a simplified parser - adjust based on actual USAC HTML structure\n\nconst html = $json.body;\nconst newsItems = [];\n\n// Regex to find news article titles and dates\n// Adjust this regex based on actual USAC news page structure\nconst titleRegex = /<h2[^>]*>(.*?)<\\/h2>/g;\nconst dateRegex = /<time[^>]*datetime=\"([^\"]+)\"[^>]*>/g;\nconst urlRegex = /<a[^>]*href=\"([^\"]+)\"[^>]*>/g;\n\nlet match;\nwhile ((match = titleRegex.exec(html)) !== null) {\n  const title = match[1].replace(/<[^>]*>/g, '').trim();\n  newsItems.push({ title });\n}\n\n// Get first news item as latest\nconst latestNews = newsItems[0] || { title: 'No news found' };\n\nreturn latestNews;"
+      },
+      "name": "Parse Latest News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/system_alerts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "alert_type",
+                "value": "=eq.usac_rule_update"
+              },
+              {
+                "name": "order",
+                "value": "created_at.desc"
+              },
+              {
+                "name": "limit",
+                "value": "1"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Get Last Known Update from Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare latest news with last known update\nconst latestNews = $input.item(0).json;\nconst lastKnownUpdate = $input.item(1).json[0];\n\nif (!lastKnownUpdate || latestNews.title !== lastKnownUpdate.title) {\n  return [latestNews];\n}\n\nreturn [];"
+      },
+      "name": "Compare with Last Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json !== undefined}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "IF: New Update Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/system_alerts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alert_type",
+              "value": "usac_rule_update"
+            },
+            {
+              "name": "title",
+              "value": "={{$json.title}}"
+            },
+            {
+              "name": "message",
+              "value": "New USAC RHC rule update detected. Please review the latest changes."
+            },
+            {
+              "name": "url",
+              "value": "={{$json.url || 'https://www.usac.org/rural-health-care/resources/news/'}}"
+            },
+            {
+              "name": "severity",
+              "value": "warning"
+            },
+            {
+              "name": "read",
+              "value": false
+            }
+          ]
+        },
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Insert Alert into Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "No New Updates - End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1450, 400]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Weekly Monday 9 AM": {
+      "main": [
+        [
+          {
+            "node": "Scrape USAC News Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape USAC News Page": {
+      "main": [
+        [
+          {
+            "node": "Parse Latest News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Latest News": {
+      "main": [
+        [
+          {
+            "node": "Get Last Known Update from Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Known Update from Supabase": {
+      "main": [
+        [
+          {
+            "node": "Compare with Last Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare with Last Update": {
+      "main": [
+        [
+          {
+            "node": "IF: New Update Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: New Update Found?": {
+      "main": [
+        [
+          {
+            "node": "Insert Alert into Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No New Updates - End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-05T00:00:00.000Z",
+  "versionId": "1"
+}

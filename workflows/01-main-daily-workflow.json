@@ -1,0 +1,387 @@
+{
+  "name": "USAC RHC - Main Daily Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger - Daily 7 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.USAC_API_URL}}/form465",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "date_from",
+                "value": "={{$now.minus(1, 'day').toISO()}}"
+              },
+              {
+                "name": "date_to",
+                "value": "={{$now.toISO()}}"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Fetch Form 465 Filings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "USAC API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deduplicate filings by generating hash and checking Supabase\nconst crypto = require('crypto');\n\nconst filings = $input.all();\nconst newFilings = [];\n\nfor (const filing of filings) {\n  const data = filing.json;\n  \n  // Generate hash for deduplication\n  const hashString = `${data.hcp_number}-${data.filing_date}-${data.address}`;\n  const hash = crypto.createHash('sha256').update(hashString).digest('hex');\n  \n  data.form_465_hash = hash;\n  newFilings.push(data);\n}\n\nreturn newFilings.map(filing => ({ json: filing }));"
+      },
+      "name": "Generate Deduplication Hash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "form_465_hash",
+                "value": "=in.({{$json.filings.map(f => f.form_465_hash).join(',')}})"
+              },
+              {
+                "name": "select",
+                "value": "form_465_hash"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Check Existing Hashes in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter out existing filings\nconst existingHashes = new Set($input.item(0).json.map(item => item.form_465_hash));\nconst allFilings = $input.item(1).json.filings;\n\nconst newFilings = allFilings.filter(filing => !existingHashes.has(filing.form_465_hash));\n\nif (newFilings.length === 0) {\n  return [];\n}\n\nreturn newFilings.map(filing => ({ json: filing }));"
+      },
+      "name": "Filter New Filings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.length}}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "IF: New Filings Exist?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse PDF and extract key fields\n// NOTE: You'll need to implement actual PDF parsing\n// This is a placeholder showing the expected structure\n\nconst filing = $json;\n\n// Simulated PDF extraction (replace with actual PDF parser)\nfiling.service_type = filing.service_type || 'Broadband';\nfiling.contract_length = filing.contract_length || 12;\nfiling.bandwidth = filing.bandwidth || '100 Mbps';\n\nreturn filing;"
+      },
+      "name": "Parse PDF Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.USAC_API_URL}}/historical",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "hcp_number",
+                "value": "={{$json.hcp_number}}"
+              },
+              {
+                "name": "years",
+                "value": "3"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Query Historical USAC Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1650, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "USAC API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate priority score based on historical data\nconst filing = $json.filing;\nconst historical = $json.historical;\n\n// Calculate metrics\nconst totalFunding = historical.reduce((sum, h) => sum + (h.funding_amount || 0), 0);\nconst locationCount = new Set(historical.map(h => h.location_name)).size;\nconst participationYears = new Set(historical.map(h => h.filing_year)).size;\n\n// Weighted scoring (1-100)\nconst fundingScore = Math.min((totalFunding / 1000000) * 40, 40); // 40% weight\nconst locationScore = Math.min(locationCount * 10, 30); // 30% weight\nconst yearsScore = Math.min(participationYears * 10, 30); // 30% weight\n\nconst priorityScore = Math.round(fundingScore + locationScore + yearsScore);\n\n// Assign label\nlet priorityLabel;\nif (priorityScore >= 80) priorityLabel = 'High';\nelse if (priorityScore >= 50) priorityLabel = 'Medium';\nelse priorityLabel = 'Low';\n\n// Merge data\nfiling.priority_score = priorityScore;\nfiling.priority_label = priorityLabel;\nfiling.total_funding_3y = totalFunding;\nfiling.location_count = locationCount;\nfiling.participation_years = participationYears;\n\nreturn filing;"
+      },
+      "name": "Calculate Priority Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "hcp_number",
+              "value": "={{$json.hcp_number}}"
+            },
+            {
+              "name": "clinic_name",
+              "value": "={{$json.clinic_name}}"
+            },
+            {
+              "name": "address",
+              "value": "={{$json.address}}"
+            },
+            {
+              "name": "city",
+              "value": "={{$json.city}}"
+            },
+            {
+              "name": "state",
+              "value": "={{$json.state}}"
+            },
+            {
+              "name": "filing_date",
+              "value": "={{$json.filing_date}}"
+            },
+            {
+              "name": "form_465_hash",
+              "value": "={{$json.form_465_hash}}"
+            },
+            {
+              "name": "service_type",
+              "value": "={{$json.service_type}}"
+            },
+            {
+              "name": "contract_length",
+              "value": "={{$json.contract_length}}"
+            },
+            {
+              "name": "bandwidth",
+              "value": "={{$json.bandwidth}}"
+            },
+            {
+              "name": "priority_score",
+              "value": "={{$json.priority_score}}"
+            },
+            {
+              "name": "priority_label",
+              "value": "={{$json.priority_label}}"
+            },
+            {
+              "name": "total_funding_3y",
+              "value": "={{$json.total_funding_3y}}"
+            },
+            {
+              "name": "location_count",
+              "value": "={{$json.location_count}}"
+            },
+            {
+              "name": "participation_years",
+              "value": "={{$json.participation_years}}"
+            }
+          ]
+        },
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Insert into Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2050, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "No New Filings - End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1450, 400]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Daily 7 AM": {
+      "main": [
+        [
+          {
+            "node": "Fetch Form 465 Filings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Form 465 Filings": {
+      "main": [
+        [
+          {
+            "node": "Generate Deduplication Hash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Deduplication Hash": {
+      "main": [
+        [
+          {
+            "node": "Check Existing Hashes in Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing Hashes in Supabase": {
+      "main": [
+        [
+          {
+            "node": "Filter New Filings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter New Filings": {
+      "main": [
+        [
+          {
+            "node": "IF: New Filings Exist?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: New Filings Exist?": {
+      "main": [
+        [
+          {
+            "node": "Parse PDF Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No New Filings - End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse PDF Details": {
+      "main": [
+        [
+          {
+            "node": "Query Historical USAC Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Historical USAC Data": {
+      "main": [
+        [
+          {
+            "node": "Calculate Priority Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Priority Score": {
+      "main": [
+        [
+          {
+            "node": "Insert into Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-05T00:00:00.000Z",
+  "versionId": "1"
+}

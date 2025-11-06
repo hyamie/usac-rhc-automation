@@ -1,0 +1,378 @@
+{
+  "name": "USAC RHC - Enrichment Sub-Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "enrichment",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "abc123-enrichment"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "id",
+                "value": "=in.({{$json.clinic_ids.join(',')}})"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Fetch Clinic Details from Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.hunter.io/v2/email-finder",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "domain",
+                "value": "={{$json.clinic_website}}"
+              },
+              {
+                "name": "first_name",
+                "value": "={{$json.contact_name.split(' ')[0]}}"
+              },
+              {
+                "name": "last_name",
+                "value": "={{$json.contact_name.split(' ').slice(1).join(' ')}}"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Hunter.io - Find Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "3",
+          "name": "Hunter.io API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/people",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "firstName",
+              "value": "={{$json.contact_name.split(' ')[0]}}"
+            },
+            {
+              "name": "lastName",
+              "value": "={{$json.contact_name.split(' ').slice(1).join(' ')}}"
+            },
+            {
+              "name": "companyName",
+              "value": "={{$json.clinic_name}}"
+            }
+          ]
+        }
+      },
+      "name": "LinkedIn - Find Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "4",
+          "name": "LinkedIn OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.email !== undefined && $json.email !== ''}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "IF: Enrichment Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4.5-20250929",
+        "prompt": "Generate a warm, professional outreach email for Charger Access.\n\nContact: {{$json.contact_name}} ({{$json.contact_title}})\nClinic: {{$json.clinic_name}}\nLocation: {{$json.city}}, {{$json.state}}\nContext: Recently filed USAC RHC Form 465 on {{$json.filing_date}}\n\nGuidelines:\n- Introduce Charger Access as a service provider (not consultant)\n- Reference their recent USAC RHC filing\n- Offer assistance with telecom services and compliance\n- Professional, warm tone\n- USAC-compliant language (no false promises)\n- Include clear call-to-action\n- Keep under 200 words\n- Subject line and body\n\nReturn format:\nSubject: [subject line]\nBody: [email body]",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 500
+        }
+      },
+      "name": "Claude Sonnet - Generate Email",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [1250, 200],
+      "credentials": {
+        "anthropicApi": {
+          "id": "5",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's response into subject and body\nconst response = $json.response;\nconst lines = response.split('\\n');\n\nconst subject = lines.find(l => l.startsWith('Subject:')).replace('Subject:', '').trim();\nconst bodyStart = lines.findIndex(l => l.startsWith('Body:'));\nconst body = lines.slice(bodyStart + 1).join('\\n').trim();\n\nreturn {\n  ...json,\n  email_subject: subject,\n  email_body: body\n};"
+      },
+      "name": "Parse Email Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "operation": "create",
+        "subject": "={{$json.email_subject}}",
+        "bodyContent": "={{$json.email_body}}",
+        "additionalFields": {
+          "toRecipients": "={{$json.contact_email}}",
+          "saveToSentItems": false
+        }
+      },
+      "name": "Outlook - Create Draft",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [1650, 200],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "6",
+          "name": "Microsoft Outlook OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "enriched",
+              "value": true
+            },
+            {
+              "name": "contact_email",
+              "value": "={{$json.contact_email}}"
+            },
+            {
+              "name": "enrichment_date",
+              "value": "={{$now.toISO()}}"
+            },
+            {
+              "name": "email_draft_created",
+              "value": true
+            },
+            {
+              "name": "processed",
+              "value": true
+            }
+          ]
+        },
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "id",
+                "value": "=eq.{{$json.id}}"
+              }
+            ]
+          },
+          "headers": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Update Supabase - Mark as Processed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1850, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "Enrichment Failed - Log Error",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "httpCode": 200,
+        "responseBody": "={{JSON.stringify({success: true, processed: $json.length})}}"
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2050, 200]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Clinic Details from Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Clinic Details from Supabase": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn - Find Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn - Find Contact": {
+      "main": [
+        [
+          {
+            "node": "Hunter.io - Find Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hunter.io - Find Email": {
+      "main": [
+        [
+          {
+            "node": "IF: Enrichment Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Enrichment Successful?": {
+      "main": [
+        [
+          {
+            "node": "Claude Sonnet - Generate Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enrichment Failed - Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Sonnet - Generate Email": {
+      "main": [
+        [
+          {
+            "node": "Parse Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Content": {
+      "main": [
+        [
+          {
+            "node": "Outlook - Create Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outlook - Create Draft": {
+      "main": [
+        [
+          {
+            "node": "Update Supabase - Mark as Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Supabase - Mark as Processed": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-05T00:00:00.000Z",
+  "versionId": "1"
+}
