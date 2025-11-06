@@ -3,11 +3,18 @@
 import { useState } from 'react'
 import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
+import { DateRangePicker } from '@/components/filters/DateRangePicker'
+import { ProgramToggle } from '@/components/filters/ProgramToggle'
+import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
 
 export function ClinicList() {
   const [filters, setFilters] = useState<ClinicsFilters>({})
+  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null })
+  const [programType, setProgramType] = useState<'Telecom' | 'Healthcare Connect' | 'All'>('All')
+  const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
+
   const { data: clinics, isLoading, error } = useClinics(filters)
 
   const handleFilterChange = (key: keyof ClinicsFilters, value: any) => {
@@ -15,6 +22,38 @@ export function ClinicList() {
       ...prev,
       [key]: value === 'all' ? undefined : value,
     }))
+  }
+
+  const handleDateRangeChange = (range: { from: Date | null; to: Date | null }) => {
+    setDateRange(range)
+    setFilters((prev) => ({
+      ...prev,
+      dateFrom: range.from?.toISOString(),
+      dateTo: range.to?.toISOString(),
+    }))
+  }
+
+  const handleProgramTypeChange = (value: 'Telecom' | 'Healthcare Connect' | 'All') => {
+    setProgramType(value)
+    setFilters((prev) => ({
+      ...prev,
+      programType: value === 'All' ? undefined : value,
+    }))
+  }
+
+  const handleConsultantFilterChange = (value: 'all' | 'direct' | 'consultant') => {
+    setConsultantFilter(value)
+    setFilters((prev) => ({
+      ...prev,
+      isConsultant: value === 'all' ? undefined : value === 'consultant',
+    }))
+  }
+
+  // Calculate counts for consultant filter
+  const consultantCounts = {
+    all: clinics?.length || 0,
+    direct: clinics?.filter(c => !c.is_consultant).length || 0,
+    consultant: clinics?.filter(c => c.is_consultant).length || 0,
   }
 
   if (error) {
@@ -30,7 +69,24 @@ export function ClinicList() {
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
+      {/* Phase 2 Filters Row */}
+      <div className="flex flex-wrap gap-4 items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <DateRangePicker
+          value={dateRange}
+          onChange={handleDateRangeChange}
+        />
+        <ProgramToggle
+          value={programType}
+          onChange={handleProgramTypeChange}
+        />
+        <ConsultantFilter
+          value={consultantFilter}
+          onChange={handleConsultantFilterChange}
+          counts={consultantCounts}
+        />
+      </div>
+
+      {/* Existing Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex gap-2 items-center">
           <span className="text-sm font-medium">Priority:</span>

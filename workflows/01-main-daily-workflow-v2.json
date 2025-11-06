@@ -1,0 +1,326 @@
+{
+  "name": "USAC RHC - Main Daily Workflow V2 (Phase 2)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger - Daily 7 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://opendata.usac.org/resource/sm8n-gg82.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "$where",
+                "value": "posting_date >= '{{$now.minus(1, 'day').toFormat('yyyy-MM-dd')}}' AND program='Telecom'"
+              },
+              {
+                "name": "$limit",
+                "value": "1000"
+              },
+              {
+                "name": "$order",
+                "value": "posting_date DESC"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Fetch Form 465 Filings (USAC API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "USAC API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process USAC API response and extract all fields\nconst filings = $input.all();\nconst processedFilings = [];\n\nfor (const filing of filings) {\n  const data = filing.json;\n  \n  // Extract contact information\n  const contactEmail = data.contact_email_address || '';\n  const mailContactEmail = data.mail_contact_email || '';\n  const contactDomain = contactEmail.split('@')[1] || '';\n  const mailDomain = mailContactEmail.split('@')[1] || '';\n  \n  // Consultant detection logic\n  const isConsultant = contactDomain !== mailDomain && mailDomain !== '';\n  \n  // Generate deduplication hash\n  const crypto = require('crypto');\n  const hashString = `${data.hcp_number}-${data.posting_date}-${data.site_name}-${data.site_address}`;\n  const hash = crypto.createHash('sha256').update(hashString).digest('hex');\n  \n  // Build processed filing object with all Phase 2 fields\n  const processed = {\n    // Core identifiers\n    hcp_number: data.hcp_number || data.health_care_provider_number,\n    application_number: data.application_number || data.form_465_application_number,\n    form_465_hash: hash,\n    \n    // Clinic information\n    clinic_name: data.site_name || data.health_care_provider_name,\n    address: data.site_address || data.service_delivery_site_physical_address,\n    city: data.site_city || data.service_delivery_site_city,\n    state: data.site_state || data.service_delivery_site_state,\n    zip: data.site_zip || data.service_delivery_site_zip_code,\n    \n    // Contact information\n    contact_name: data.contact_person_name || data.contact_name,\n    contact_title: data.contact_person_title || data.contact_title,\n    contact_email: contactEmail,\n    contact_phone: data.contact_phone_number || data.contact_telephone_number,\n    \n    // Mail contact (potentially consultant)\n    mail_contact_name: data.mail_contact_name || data.mailing_contact_name,\n    mail_contact_email: mailContactEmail,\n    mail_contact_company: data.mail_contact_company || data.mailing_contact_company,\n    \n    // Consultant detection\n    is_consultant: isConsultant,\n    consultant_company: isConsultant ? (data.mail_contact_company || data.mailing_contact_company) : null,\n    consultant_email_domain: isConsultant ? mailDomain : null,\n    consultant_detection_method: isConsultant ? 'auto_domain' : null,\n    \n    // Dates\n    posting_date: data.posting_date,\n    filing_date: data.form_465_date_certified || data.posting_date,\n    allowable_contract_start_date: data.allowable_contract_date,\n    \n    // Program information\n    program_type: 'Telecom',\n    service_type: data.service_type || data.type_of_service,\n    description_of_services: data.narrative_description || data.description,\n    \n    // Contract details\n    contract_length: data.contract_term_months || null,\n    bandwidth: data.bandwidth_mbps || null,\n    \n    // PDF URL\n    form_465_pdf_url: data.application_number ? `https://rhc.usac.org/rhc/public/viewPdf.seam?documentId=${data.application_number}` : null,\n    \n    // Status\n    review_status: 'pending',\n    created_at: new Date().toISOString()\n  };\n  \n  processedFilings.push({ json: processed });\n}\n\nreturn processedFilings;"
+      },
+      "name": "Process & Extract All Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "form_465_hash",
+                "value": "eq.{{$json.form_465_hash}}"
+              },
+              {
+                "name": "select",
+                "value": "form_465_hash"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Check if Already Exists",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.length}}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "IF: Is New Filing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://opendata.usac.org/resource/sm8n-gg82.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "$where",
+                "value": "health_care_provider_number='{{$json.hcp_number}}'"
+              },
+              {
+                "name": "$select",
+                "value": "funding_year,total_approved_one_time_cost"
+              },
+              {
+                "name": "$order",
+                "value": "funding_year DESC"
+              },
+              {
+                "name": "$limit",
+                "value": "3"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Query Historical Funding (3 Years)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "USAC API Key"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge historical funding data with filing\nconst filing = $input.first().json;\nconst historicalData = $input.all().slice(1);\n\n// Extract up to 3 years of funding\nif (historicalData.length > 0) {\n  historicalData.forEach((record, index) => {\n    const data = record.json;\n    if (index < 3) {\n      filing[`funding_year_${index + 1}`] = parseInt(data.funding_year) || null;\n      filing[`funding_amount_${index + 1}`] = parseFloat(data.total_approved_one_time_cost) || 0;\n    }\n  });\n  \n  // Calculate total 3-year funding\n  const totalFunding = (filing.funding_amount_1 || 0) + \n                       (filing.funding_amount_2 || 0) + \n                       (filing.funding_amount_3 || 0);\n  \n  // Calculate priority score\n  // Base score on funding history (0-100)\n  let priorityScore = 0;\n  \n  // Funding amount (40 points max)\n  if (totalFunding > 1000000) priorityScore += 40;\n  else if (totalFunding > 500000) priorityScore += 30;\n  else if (totalFunding > 100000) priorityScore += 20;\n  else if (totalFunding > 0) priorityScore += 10;\n  \n  // Consistency (30 points) - participated multiple years\n  const yearsWithFunding = [filing.funding_amount_1, filing.funding_amount_2, filing.funding_amount_3]\n    .filter(amt => amt > 0).length;\n  priorityScore += yearsWithFunding * 10;\n  \n  // Consultant factor (30 points) - consultants often mean larger projects\n  if (filing.is_consultant) {\n    priorityScore += 30;\n  } else {\n    priorityScore += 15; // Direct contacts still valuable\n  }\n  \n  filing.priority_score = Math.min(priorityScore, 100);\n  \n  // Assign priority label\n  if (filing.priority_score >= 70) filing.priority_label = 'High';\n  else if (filing.priority_score >= 40) filing.priority_label = 'Medium';\n  else filing.priority_label = 'Low';\n  \n  filing.total_funding_3y = totalFunding;\n} else {\n  // No historical data - assign low priority\n  filing.priority_score = 25;\n  filing.priority_label = 'Low';\n  filing.total_funding_3y = 0;\n}\n\nreturn { json: filing };"
+      },
+      "name": "Calculate Priority & Merge Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "application/json",
+        "body": "={{JSON.stringify($json)}}",
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Insert into Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1650, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "Already Exists - Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log workflow completion\nconst totalProcessed = $input.all().length;\nconsole.log(`USAC RHC Workflow V2 Complete: ${totalProcessed} new filings processed`);\n\nreturn [{\n  json: {\n    status: 'success',\n    processed: totalProcessed,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "name": "Log Completion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1850, 200]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Daily 7 AM": {
+      "main": [
+        [
+          {
+            "node": "Fetch Form 465 Filings (USAC API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Form 465 Filings (USAC API)": {
+      "main": [
+        [
+          {
+            "node": "Process & Extract All Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Extract All Fields": {
+      "main": [
+        [
+          {
+            "node": "Check if Already Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Already Exists": {
+      "main": [
+        [
+          {
+            "node": "IF: Is New Filing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Is New Filing?": {
+      "main": [
+        [
+          {
+            "node": "Query Historical Funding (3 Years)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Already Exists - Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Historical Funding (3 Years)": {
+      "main": [
+        [
+          {
+            "node": "Calculate Priority & Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Priority & Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Insert into Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert into Supabase": {
+      "main": [
+        [
+          {
+            "node": "Log Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "USAC",
+      "id": "1"
+    },
+    {
+      "name": "Phase 2",
+      "id": "2"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-06T00:00:00.000Z",
+  "versionId": "2"
+}

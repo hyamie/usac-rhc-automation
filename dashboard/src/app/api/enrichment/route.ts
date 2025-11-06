@@ -27,14 +27,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update clinic to mark enrichment in progress
+    // Supabase client (for future updates if needed)
     const supabase = await createClient()
-    await supabase
-      .from('clinics_pending_review')
-      .update({
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', clinicId)
 
     // Call n8n enrichment webhook
     const webhookResponse = await fetch(webhookUrl, {

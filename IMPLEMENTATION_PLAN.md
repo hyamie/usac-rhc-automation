@@ -381,15 +381,32 @@ N8N_API_KEY=eyJhbGciOi...
 
 ---
 
-## ❓ Questions to Answer (Before Execution)
+## ✅ All Questions Answered
 
-1. ✅ Consultant detection strategy - AUTO + MANUAL BUTTONS
-2. ✅ USAC API key - WILL CREATE
-3. ✅ Workflow updates - UPDATE NOW
-4. ⏳ **Excel export analysis** - Need to review exported data fields
-5. ✅ Historical funding display - SHOW LAST 3 YEARS BY YEAR
-6. ❓ **Any other consultant companies to add to initial list?**
-7. ❓ **Preferred email sending method** - Outlook drafts or direct send?
+1. ✅ Consultant detection: Start empty, auto-add by email domain when manually tagged
+2. ✅ USAC API credentials saved to config/.env
+3. ✅ Email drafts: Create in "USAC drafts" folder in Outlook
+4. ✅ CSV export analyzed - all fields identified
+5. ✅ User has purchased more usage - proceed autonomously
+
+## 📊 CSV Data Structure (From exp.csv)
+
+**Available Fields:**
+- Program (Telecom/HCF)
+- Application Number, Funding Year
+- HCP Number, HCP Name
+- Contact First/Last Name, Phone, E-mail
+- Posting Start Date, Allowable Contract Start Date
+- Mail Contact info (consultant detection!)
+- Link to FCC Form PDF
+- Description of Services Requested
+- Site Address, City, State, ZIP
+- Category of Expense fields
+
+**Consultant Detection from CSV:**
+- Compare "Contact E-mail" vs "Mail Contact E-mail"
+- If different domains = consultant
+- Mail Contact is likely the consultant preparing the filing
 
 ---
 

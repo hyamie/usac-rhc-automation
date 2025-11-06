@@ -1,0 +1,356 @@
+{
+  "name": "USAC RHC - Enrichment Sub-Workflow V2 (Phase 2)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "enrichment-v2",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "abc123-enrichment-v2"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "id",
+                "value": "eq.{{$json.clinic_id}}"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Fetch Clinic Details from Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract consultant status for email template routing\nconst clinic = $json[0];\n\nreturn {\n  json: {\n    ...clinic,\n    // Flag for template selection\n    email_template_type: clinic.is_consultant ? 'consultant' : 'direct',\n    // Determine addressee\n    addressee_name: clinic.contact_name || clinic.mail_contact_name,\n    addressee_email: clinic.contact_email || clinic.mail_contact_email,\n    addressee_company: clinic.is_consultant ? (clinic.consultant_company || clinic.mail_contact_company) : clinic.clinic_name\n  }\n};"
+      },
+      "name": "Determine Contact Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.hunter.io/v2/domain-search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "domain",
+                "value": "={{$json.consultant_email_domain || $json.addressee_email.split('@')[1]}}"
+              },
+              {
+                "name": "limit",
+                "value": "1"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Hunter.io - Verify Email Domain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "3",
+          "name": "Hunter.io API Key"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/customsearch/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "q",
+                "value": "={{$json.addressee_name}} {{$json.addressee_company}} LinkedIn"
+              },
+              {
+                "name": "num",
+                "value": "3"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Google Search - Find Professional Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 300],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "7",
+          "name": "Google API Key"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract enrichment findings from search results\nconst clinic = $json;\nlet enrichmentFinding = '';\n\n// Check if we have search results\nif (clinic.items && clinic.items.length > 0) {\n  const topResult = clinic.items[0];\n  enrichmentFinding = topResult.snippet || '';\n  \n  // Extract key details\n  if (enrichmentFinding.includes('years')) {\n    const yearsMatch = enrichmentFinding.match(/(\\d+)\\s*years/);\n    if (yearsMatch) {\n      clinic.years_experience = parseInt(yearsMatch[1]);\n    }\n  }\n  \n  // Look for certifications or notable achievements\n  const certifications = ['RCDD', 'CCNA', 'PMP', 'CISSP', 'telecom', 'network'];\n  for (const cert of certifications) {\n    if (enrichmentFinding.toLowerCase().includes(cert.toLowerCase())) {\n      clinic.has_telecom_background = true;\n      break;\n    }\n  }\n}\n\nclinic.enrichment_finding = enrichmentFinding || 'Healthcare telecom professional';\nclinic.enriched = true;\nclinic.enrichment_date = new Date().toISOString();\n\nreturn { json: clinic };"
+      },
+      "name": "Extract Enrichment Findings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4.5-20250929",
+        "prompt": "={{`Generate a professional outreach email for Charger Access.\n\n**Contact Type: ${$json.is_consultant ? 'CONSULTANT' : 'DIRECT FACILITY CONTACT'}**\n\n**Contact Information:**\n- Name: ${$json.addressee_name}\n- Title: ${$json.contact_title || 'Contact'}\n- Company: ${$json.addressee_company}\n- Email: ${$json.addressee_email}\n\n**Client/Facility (if consultant):**\n${$json.is_consultant ? `- Client: ${$json.clinic_name}\n- Location: ${$json.city}, ${$json.state}\n- HCP Number: ${$json.hcp_number}` : ''}\n\n**Context:**\n- Recently filed USAC RHC Form 465 on ${$json.posting_date}\n- Services requested: ${$json.description_of_services || $json.service_type || 'Telecom services'}\n- Historical funding (3 years): $${($json.total_funding_3y || 0).toLocaleString()}\n- Personal detail: ${$json.enrichment_finding}\n\n**Email Template Guidelines:**\n\n${$json.is_consultant ? `\n### CONSULTANT TEMPLATE:\n- Acknowledge their role as a telecom consultant\n- Reference their client (${$json.clinic_name})\n- Demonstrate understanding of consultant-client dynamics\n- Position Charger Access as a partner, not competitor\n- Mention their professional background if found: ${$json.enrichment_finding}\n- Offer to support their USAC filing process\n- Professional, respectful tone recognizing their expertise\n` : `\n### DIRECT CONTACT TEMPLATE:\n- Address them as facility representative\n- Reference their healthcare facility directly\n- Offer Charger Access as service provider\n- Emphasize hands-on support and USAC compliance expertise\n- Warm, helpful tone\n- Mention their background if found: ${$json.enrichment_finding}\n`}\n\n**General Guidelines:**\n- Professional, warm tone\n- USAC-compliant language (no false promises)\n- Reference their recent Form 465 filing\n- Include clear call-to-action (schedule call)\n- Keep under 180 words\n- Return in exact format below\n\n**Return Format:**\nSubject: [One-line subject]\n\nBody:\n[Email body with proper paragraphs and greeting]`}}",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 600
+        }
+      },
+      "name": "Claude Sonnet - Generate Consultant-Aware Email",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [1450, 300],
+      "credentials": {
+        "anthropicApi": {
+          "id": "5",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's response into subject and body\nconst response = $json.response || $json.output || '';\nconst clinic = $input.first().json;\n\nlet subject = '';\nlet body = '';\n\n// Parse format: Subject: ... \\n\\nBody: ...\nconst subjectMatch = response.match(/Subject:\\s*(.+?)\\n/i);\nif (subjectMatch) {\n  subject = subjectMatch[1].trim();\n}\n\nconst bodyMatch = response.match(/Body:\\s*([\\s\\S]+)$/i);\nif (bodyMatch) {\n  body = bodyMatch[1].trim();\n} else {\n  // Fallback: everything after first blank line\n  const parts = response.split('\\n\\n');\n  if (parts.length > 1) {\n    body = parts.slice(1).join('\\n\\n').trim();\n  } else {\n    body = response.trim();\n  }\n}\n\n// Add signature\nbody += `\\n\\n---\\nCharger Access\\nUSAC RHC Service Provider\\nwww.chargeraccess.com`;\n\nreturn {\n  json: {\n    ...clinic,\n    email_subject: subject || `USAC RHC Services - ${clinic.clinic_name}`,\n    email_body: body,\n    email_generated_at: new Date().toISOString()\n  }\n};"
+      },
+      "name": "Parse Email Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "operation": "create",
+        "subject": "={{$json.email_subject}}",
+        "bodyContent": "={{$json.email_body}}",
+        "bodyContentType": "text",
+        "additionalFields": {
+          "toRecipients": "={{$json.addressee_email}}",
+          "importance": "normal",
+          "saveToSentItems": false,
+          "messageFolder": "USAC Drafts"
+        }
+      },
+      "name": "Outlook - Create Draft in USAC Folder",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [1850, 300],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "6",
+          "name": "Microsoft Outlook OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review?id=eq.{{$json.id}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "application/json",
+        "body": "={{JSON.stringify({\n  enriched: true,\n  enrichment_date: $json.enrichment_date,\n  enrichment_finding: $json.enrichment_finding,\n  email_draft_created: true,\n  email_subject: $json.email_subject,\n  email_body: $json.email_body,\n  processed: true,\n  last_updated: new Date().toISOString()\n})}}",
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Update Supabase - Mark as Enriched",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2050, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Supabase Service Role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpCode": 200,
+        "responseBody": "={{JSON.stringify({\n  success: true,\n  clinic_id: $json.id,\n  clinic_name: $json.clinic_name,\n  is_consultant: $json.is_consultant,\n  email_created: true,\n  subject: $json.email_subject\n})}}"
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Clinic Details from Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Clinic Details from Supabase": {
+      "main": [
+        [
+          {
+            "node": "Determine Contact Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Contact Type": {
+      "main": [
+        [
+          {
+            "node": "Hunter.io - Verify Email Domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hunter.io - Verify Email Domain": {
+      "main": [
+        [
+          {
+            "node": "Google Search - Find Professional Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Search - Find Professional Profile": {
+      "main": [
+        [
+          {
+            "node": "Extract Enrichment Findings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Enrichment Findings": {
+      "main": [
+        [
+          {
+            "node": "Claude Sonnet - Generate Consultant-Aware Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Sonnet - Generate Consultant-Aware Email": {
+      "main": [
+        [
+          {
+            "node": "Parse Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Content": {
+      "main": [
+        [
+          {
+            "node": "Outlook - Create Draft in USAC Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outlook - Create Draft in USAC Folder": {
+      "main": [
+        [
+          {
+            "node": "Update Supabase - Mark as Enriched",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Supabase - Mark as Enriched": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "USAC",
+      "id": "1"
+    },
+    {
+      "name": "Phase 2",
+      "id": "2"
+    },
+    {
+      "name": "Enrichment",
+      "id": "3"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-06T00:00:00.000Z",
+  "versionId": "2"
+}
