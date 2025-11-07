@@ -15,7 +15,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "url": "https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/clinics_pending_review",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
@@ -148,7 +148,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review?id=eq.{{$json.id}}",
+        "url": "https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/clinics_pending_review?id=eq.{{$json.id}}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
