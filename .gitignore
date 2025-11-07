@@ -49,3 +49,4 @@ next-env.d.ts
 
 # OS
 Thumbs.db
+ANTHROPIC_API_KEY.md

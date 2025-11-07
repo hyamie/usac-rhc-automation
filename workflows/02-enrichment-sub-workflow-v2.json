@@ -52,39 +52,6 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "https://api.hunter.io/v2/domain-search",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpQueryAuth",
-        "options": {
-          "queryParameters": {
-            "parameters": [
-              {
-                "name": "domain",
-                "value": "={{$json.consultant_email_domain || $json.addressee_email.split('@')[1]}}"
-              },
-              {
-                "name": "limit",
-                "value": "1"
-              }
-            ]
-          }
-        }
-      },
-      "name": "Hunter.io - Verify Email Domain",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [850, 300],
-      "credentials": {
-        "httpQueryAuth": {
-          "id": "3",
-          "name": "Hunter.io API Key"
-        }
-      },
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "method": "GET",
         "url": "https://www.googleapis.com/customsearch/v1",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpQueryAuth",
@@ -244,17 +211,6 @@
       ]
     },
     "Determine Contact Type": {
-      "main": [
-        [
-          {
-            "node": "Hunter.io - Verify Email Domain",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Hunter.io - Verify Email Domain": {
       "main": [
         [
           {

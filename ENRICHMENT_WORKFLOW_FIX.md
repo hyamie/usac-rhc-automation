@@ -26,15 +26,24 @@ API Error: 400
 
 ## Solution Applied
 
-### Modified Node: "Extract Enrichment Findings (Text Only)"
+### Change 1: Modified Node - "Extract Enrichment Findings (Text Only)"
 
-**File:** `workflows/02-enrichment-sub-workflow-v2.json` (Line 118-126)
+**File:** `workflows/02-enrichment-sub-workflow-v2.json`
 
 **Changes:**
 - Added strict filtering to only pass primitive data types (string, number, boolean, null)
 - Strips out all image/binary data from Google Search results
 - Only extracts text `snippet` field from search results
 - Ensures no complex objects or images reach Claude API
+
+### Change 2: Removed Unnecessary Hunter.io Node
+
+**Changes:**
+- Removed Hunter.io domain search node (unused results, unnecessary cost)
+- Updated workflow connection: Determine Contact Type → Google Search (direct)
+- Workflow now flows more efficiently without unused API calls
+- **Cost Savings:** No more Hunter.io API credits consumed per enrichment
+- **Speed Improvement:** One less HTTP request per enrichment
 
 **Code Logic:**
 ```javascript
