@@ -117,9 +117,9 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extract enrichment findings from search results\nconst clinic = $json;\nlet enrichmentFinding = '';\n\n// Check if we have search results\nif (clinic.items && clinic.items.length > 0) {\n  const topResult = clinic.items[0];\n  enrichmentFinding = topResult.snippet || '';\n  \n  // Extract key details\n  if (enrichmentFinding.includes('years')) {\n    const yearsMatch = enrichmentFinding.match(/(\\d+)\\s*years/);\n    if (yearsMatch) {\n      clinic.years_experience = parseInt(yearsMatch[1]);\n    }\n  }\n  \n  // Look for certifications or notable achievements\n  const certifications = ['RCDD', 'CCNA', 'PMP', 'CISSP', 'telecom', 'network'];\n  for (const cert of certifications) {\n    if (enrichmentFinding.toLowerCase().includes(cert.toLowerCase())) {\n      clinic.has_telecom_background = true;\n      break;\n    }\n  }\n}\n\nclinic.enrichment_finding = enrichmentFinding || 'Healthcare telecom professional';\nclinic.enriched = true;\nclinic.enrichment_date = new Date().toISOString();\n\nreturn { json: clinic };"
+        "jsCode": "// Extract enrichment findings from search results (TEXT ONLY - strip images)\nconst inputData = $input.first().json;\nconst clinic = {};\n\n// Copy only primitive/text fields from clinic data (no images/binary)\nfor (const key in inputData) {\n  const value = inputData[key];\n  // Only copy primitive types (string, number, boolean, null)\n  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined) {\n    clinic[key] = value;\n  }\n}\n\nlet enrichmentFinding = '';\n\n// Check if we have search results - extract TEXT ONLY\nif (inputData.items && Array.isArray(inputData.items) && inputData.items.length > 0) {\n  const topResult = inputData.items[0];\n  // Only extract text snippet - ignore images, pagemap, etc.\n  enrichmentFinding = topResult.snippet || '';\n  \n  // Extract key details from TEXT\n  if (enrichmentFinding.includes('years')) {\n    const yearsMatch = enrichmentFinding.match(/(\\d+)\\s*years/);\n    if (yearsMatch) {\n      clinic.years_experience = parseInt(yearsMatch[1]);\n    }\n  }\n  \n  // Look for certifications or notable achievements\n  const certifications = ['RCDD', 'CCNA', 'PMP', 'CISSP', 'telecom', 'network'];\n  for (const cert of certifications) {\n    if (enrichmentFinding.toLowerCase().includes(cert.toLowerCase())) {\n      clinic.has_telecom_background = true;\n      break;\n    }\n  }\n}\n\nclinic.enrichment_finding = enrichmentFinding || 'Healthcare telecom professional';\nclinic.enriched = true;\nclinic.enrichment_date = new Date().toISOString();\n\n// Return ONLY text data - no images/binary\nreturn { json: clinic };"
       },
-      "name": "Extract Enrichment Findings",
+      "name": "Extract Enrichment Findings (Text Only)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [1250, 300]
@@ -269,14 +269,14 @@
       "main": [
         [
           {
-            "node": "Extract Enrichment Findings",
+            "node": "Extract Enrichment Findings (Text Only)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Extract Enrichment Findings": {
+    "Extract Enrichment Findings (Text Only)": {
       "main": [
         [
           {
