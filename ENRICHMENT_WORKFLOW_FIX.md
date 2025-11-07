@@ -45,6 +45,18 @@ API Error: 400
 - **Cost Savings:** No more Hunter.io API credits consumed per enrichment
 - **Speed Improvement:** One less HTTP request per enrichment
 
+### Change 3: Fixed n8n Cloud Environment Variable Access Error
+
+**Error:** `access to env vars denied - N8N_BLOCK_ENV_ACCESS_IN_NODE`
+
+**Changes:**
+- Replaced all `={{$env.SUPABASE_URL}}` references with hardcoded URL
+- n8n Cloud blocks environment variable access for security
+- Updated URL to: `https://fhuqiicgmfpnmficopqp.supabase.co`
+- Fixed in both V2 workflows:
+  - 01-main-daily-workflow-v2.json
+  - 02-enrichment-sub-workflow-v2.json
+
 **Code Logic:**
 ```javascript
 // Copy only primitive/text fields (no images/binary)
