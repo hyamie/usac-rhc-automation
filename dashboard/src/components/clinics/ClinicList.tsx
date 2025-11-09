@@ -49,11 +49,11 @@ export function ClinicList() {
     }))
   }
 
-  // Calculate counts for consultant filter
+  // Calculate counts for consultant filter (removed - consultant detection not in current schema)
   const consultantCounts = {
     all: clinics?.length || 0,
-    direct: clinics?.filter(c => !c.is_consultant).length || 0,
-    consultant: clinics?.filter(c => c.is_consultant).length || 0,
+    direct: 0,
+    consultant: 0,
   }
 
   if (error) {
@@ -86,65 +86,58 @@ export function ClinicList() {
         />
       </div>
 
-      {/* Existing Filters */}
+      {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex gap-2 items-center">
-          <span className="text-sm font-medium">Priority:</span>
+          <span className="text-sm font-medium">Funding Year:</span>
           <div className="flex gap-1">
             <Button
-              variant={filters.priority === undefined ? 'default' : 'outline'}
+              variant={filters.funding_year === undefined ? 'default' : 'outline'}
               size="sm"
-              onClick={() => handleFilterChange('priority', 'all')}
+              onClick={() => handleFilterChange('funding_year', 'all')}
             >
               All
             </Button>
             <Button
-              variant={filters.priority === 'High' ? 'default' : 'outline'}
+              variant={filters.funding_year === '2025' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => handleFilterChange('priority', 'High')}
+              onClick={() => handleFilterChange('funding_year', '2025')}
             >
-              High
+              2025
             </Button>
             <Button
-              variant={filters.priority === 'Medium' ? 'default' : 'outline'}
+              variant={filters.funding_year === '2026' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => handleFilterChange('priority', 'Medium')}
+              onClick={() => handleFilterChange('funding_year', '2026')}
             >
-              Medium
-            </Button>
-            <Button
-              variant={filters.priority === 'Low' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('priority', 'Low')}
-            >
-              Low
+              2026
             </Button>
           </div>
         </div>
 
         <div className="flex gap-2 items-center">
-          <span className="text-sm font-medium">Status:</span>
+          <span className="text-sm font-medium">Application Type:</span>
           <div className="flex gap-1">
             <Button
-              variant={filters.enriched === undefined ? 'default' : 'outline'}
+              variant={filters.application_type === undefined ? 'default' : 'outline'}
               size="sm"
-              onClick={() => handleFilterChange('enriched', 'all')}
+              onClick={() => handleFilterChange('application_type', 'all')}
             >
               All
             </Button>
             <Button
-              variant={filters.enriched === false ? 'default' : 'outline'}
+              variant={filters.application_type === 'New' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => handleFilterChange('enriched', false)}
+              onClick={() => handleFilterChange('application_type', 'New')}
             >
-              Not Enriched
+              New
             </Button>
             <Button
-              variant={filters.enriched === true ? 'default' : 'outline'}
+              variant={filters.application_type === 'Renewal' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => handleFilterChange('enriched', true)}
+              onClick={() => handleFilterChange('application_type', 'Renewal')}
             >
-              Enriched
+              Renewal
             </Button>
           </div>
         </div>

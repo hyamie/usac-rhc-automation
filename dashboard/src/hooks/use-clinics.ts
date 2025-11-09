@@ -6,8 +6,8 @@ type Clinic = Database['public']['Tables']['clinics_pending_review']['Row']
 
 export interface ClinicsFilters {
   state?: string
-  priority?: 'High' | 'Medium' | 'Low'
-  enriched?: boolean
+  funding_year?: string
+  application_type?: string
   processed?: boolean
 }
 
@@ -20,19 +20,19 @@ export function useClinics(filters: ClinicsFilters = {}) {
       let query = supabase
         .from('clinics_pending_review')
         .select('*')
-        .order('priority_score', { ascending: false })
         .order('filing_date', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (filters.state) {
         query = query.eq('state', filters.state)
       }
 
-      if (filters.priority) {
-        query = query.eq('priority_label', filters.priority)
+      if (filters.funding_year) {
+        query = query.eq('funding_year', filters.funding_year)
       }
 
-      if (filters.enriched !== undefined) {
-        query = query.eq('enriched', filters.enriched)
+      if (filters.application_type) {
+        query = query.eq('application_type', filters.application_type)
       }
 
       if (filters.processed !== undefined) {

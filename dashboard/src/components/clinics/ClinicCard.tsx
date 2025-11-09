@@ -3,12 +3,10 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { EnrichmentButton } from './EnrichmentButton'
-import { ConsultantBadge } from './ConsultantBadge'
 import { FundingHistory } from './FundingHistory'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import type { Database } from '@/types/database.types'
-import { MapPin, Calendar, DollarSign, Building2, FileText, Tag, X } from 'lucide-react'
+import type { Database, HistoricalFundingItem } from '@/types/database.types'
+import { MapPin, Calendar, DollarSign, FileText, Mail, Phone, User, Building2 } from 'lucide-react'
 import { useState } from 'react'
 
 type Clinic = Database['public']['Tables']['clinics_pending_review']['Row']
@@ -18,53 +16,11 @@ interface ClinicCardProps {
 }
 
 export function ClinicCard({ clinic }: ClinicCardProps) {
-  const [isTagging, setIsTagging] = useState(false)
   const [showFunding, setShowFunding] = useState(false)
+  const [showContacts, setShowContacts] = useState(false)
 
-  const getPriorityVariant = (priority: string | null) => {
-    switch (priority) {
-      case 'High':
-        return 'destructive'
-      case 'Medium':
-        return 'warning'
-      case 'Low':
-        return 'secondary'
-      default:
-        return 'outline'
-    }
-  }
-
-  const handleTagConsultant = async () => {
-    setIsTagging(true)
-    try {
-      const response = await fetch(`/api/clinics/${clinic.id}/tag-consultant`, {
-        method: 'POST',
-      })
-      if (response.ok) {
-        window.location.reload()
-      }
-    } catch (error) {
-      console.error('Failed to tag consultant:', error)
-    } finally {
-      setIsTagging(false)
-    }
-  }
-
-  const handleUntagConsultant = async () => {
-    setIsTagging(true)
-    try {
-      const response = await fetch(`/api/clinics/${clinic.id}/untag-consultant`, {
-        method: 'POST',
-      })
-      if (response.ok) {
-        window.location.reload()
-      }
-    } catch (error) {
-      console.error('Failed to untag consultant:', error)
-    } finally {
-      setIsTagging(false)
-    }
-  }
+  // Parse historical funding JSONB
+  const historicalFunding = clinic.historical_funding as HistoricalFundingItem[] | null
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
@@ -74,48 +30,59 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
             <CardTitle className="text-lg">{clinic.clinic_name}</CardTitle>
             <CardDescription className="mt-1">
               HCP #{clinic.hcp_number}
+              {clinic.application_number && (
+                <span className="ml-2 text-xs">
+                  App: {clinic.application_number}
+                </span>
+              )}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
-            {clinic.priority_label && (
-              <Badge variant={getPriorityVariant(clinic.priority_label)}>
-                {clinic.priority_label}
+          <div className="flex gap-2 flex-wrap justify-end">
+            {clinic.funding_year && (
+              <Badge variant="outline" className="bg-blue-50">
+                FY {clinic.funding_year}
               </Badge>
             )}
-            {clinic.program_type && (
-              <Badge variant="outline">{clinic.program_type}</Badge>
+            {clinic.application_type && (
+              <Badge variant="outline" className="bg-purple-50">
+                {clinic.application_type}
+              </Badge>
             )}
             {clinic.processed && (
-              <Badge variant="success">Processed</Badge>
+              <Badge variant="default" className="bg-green-600">
+                Processed
+              </Badge>
             )}
           </div>
-        </div>
-        <div className="mt-3">
-          <ConsultantBadge
-            isConsultant={clinic.is_consultant || false}
-            consultantCompany={clinic.consultant_company}
-            consultantEmailDomain={clinic.consultant_email_domain}
-            detectionMethod={clinic.consultant_detection_method}
-            size="md"
-          />
         </div>
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {/* Location */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="h-4 w-4" />
           <span>
-            {clinic.city}, {clinic.state}
+            {clinic.city}, {clinic.state} {clinic.zip}
           </span>
         </div>
 
-        {clinic.posting_date && (
+        {/* Filing Date */}
+        {clinic.filing_date && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            <span>Posted: {formatDate(clinic.posting_date)}</span>
+            <span>Filed: {formatDate(clinic.filing_date)}</span>
           </div>
         )}
 
+        {/* Allowable Contract Start Date */}
+        {clinic.allowable_contract_start_date && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>Contract Start: {formatDate(clinic.allowable_contract_start_date)}</span>
+          </div>
+        )}
+
+        {/* Form 465 PDF Link */}
         {clinic.form_465_pdf_url && (
           <div className="flex items-center gap-2 text-sm">
             <FileText className="h-4 w-4 text-blue-600" />
@@ -130,7 +97,16 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
           </div>
         )}
 
-        {(clinic.funding_year_1 || clinic.funding_year_2 || clinic.funding_year_3) && (
+        {/* Service Type */}
+        {clinic.service_type && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Building2 className="h-4 w-4" />
+            <span className="line-clamp-2">{clinic.service_type}</span>
+          </div>
+        )}
+
+        {/* Historical Funding */}
+        {historicalFunding && Array.isArray(historicalFunding) && historicalFunding.length > 0 && (
           <div className="mt-3 pt-3 border-t">
             <Button
               variant="ghost"
@@ -139,82 +115,101 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
               className="w-full mb-2"
             >
               <DollarSign className="h-4 w-4 mr-2" />
-              {showFunding ? 'Hide' : 'Show'} Funding History
+              {showFunding ? 'Hide' : 'Show'} Funding History ({historicalFunding.length} years)
             </Button>
             {showFunding && (
               <FundingHistory
-                fundingYear1={clinic.funding_year_1}
-                fundingAmount1={clinic.funding_amount_1}
-                fundingYear2={clinic.funding_year_2}
-                fundingAmount2={clinic.funding_amount_2}
-                fundingYear3={clinic.funding_year_3}
-                fundingAmount3={clinic.funding_amount_3}
-                totalFunding3y={clinic.total_funding_3y}
+                historicalFunding={historicalFunding}
                 layout="vertical"
               />
             )}
           </div>
         )}
 
-        {(clinic.contact_name || clinic.mail_contact_name) && (
+        {/* Contact Information */}
+        {(clinic.contact_email || clinic.contact_phone ||
+          clinic.mail_contact_first_name || clinic.mail_contact_email) && (
           <div className="mt-3 pt-3 border-t">
-            <p className="text-sm font-medium">Contact:</p>
-            <p className="text-sm text-muted-foreground">
-              {clinic.contact_name || clinic.mail_contact_name}
-            </p>
-            {(clinic.contact_email || clinic.mail_contact_email) && (
-              <p className="text-sm text-muted-foreground">
-                {clinic.contact_email || clinic.mail_contact_email}
-              </p>
-            )}
-            {clinic.is_consultant && clinic.consultant_company && (
-              <p className="text-xs text-purple-600 mt-1">
-                via {clinic.consultant_company}
-              </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowContacts(!showContacts)}
+              className="w-full mb-2"
+            >
+              <User className="h-4 w-4 mr-2" />
+              {showContacts ? 'Hide' : 'Show'} Contact Information
+            </Button>
+
+            {showContacts && (
+              <div className="space-y-3">
+                {/* Primary Contact */}
+                {(clinic.contact_email || clinic.contact_phone) && (
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-gray-600 mb-2">Primary Contact</p>
+                    {clinic.contact_email && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                        <Mail className="h-3 w-3" />
+                        <a href={`mailto:${clinic.contact_email}`} className="hover:underline">
+                          {clinic.contact_email}
+                        </a>
+                      </div>
+                    )}
+                    {clinic.contact_phone && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        <a href={`tel:${clinic.contact_phone}`} className="hover:underline">
+                          {clinic.contact_phone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Mail Contact */}
+                {(clinic.mail_contact_first_name || clinic.mail_contact_email || clinic.mail_contact_phone) && (
+                  <div className="bg-blue-50 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-blue-600 mb-2">Mailing Contact</p>
+                    {(clinic.mail_contact_first_name || clinic.mail_contact_last_name) && (
+                      <p className="text-sm font-medium text-gray-900 mb-1">
+                        {clinic.mail_contact_first_name} {clinic.mail_contact_last_name}
+                      </p>
+                    )}
+                    {clinic.mail_contact_org_name && (
+                      <p className="text-xs text-gray-600 mb-2">
+                        {clinic.mail_contact_org_name}
+                      </p>
+                    )}
+                    {clinic.mail_contact_email && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                        <Mail className="h-3 w-3" />
+                        <a href={`mailto:${clinic.mail_contact_email}`} className="hover:underline">
+                          {clinic.mail_contact_email}
+                        </a>
+                      </div>
+                    )}
+                    {clinic.mail_contact_phone && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        <a href={`tel:${clinic.mail_contact_phone}`} className="hover:underline">
+                          {clinic.mail_contact_phone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
       </CardContent>
 
       <CardFooter className="flex flex-col gap-2">
-        <div className="flex justify-between items-center w-full">
-          <div className="text-xs text-muted-foreground">
-            {clinic.enriched ? (
-              <span>Enriched {clinic.enrichment_date && `on ${formatDate(clinic.enrichment_date)}`}</span>
-            ) : (
-              <span>Not enriched yet</span>
-            )}
-          </div>
-          <EnrichmentButton
-            clinicId={clinic.id}
-            hcpNumber={clinic.hcp_number}
-            clinicName={clinic.clinic_name}
-            enriched={clinic.enriched}
-          />
-        </div>
-        <div className="flex gap-2 w-full">
-          {clinic.is_consultant ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleUntagConsultant}
-              disabled={isTagging}
-              className="flex-1"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Untag Consultant
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTagConsultant}
-              disabled={isTagging}
-              className="flex-1"
-            >
-              <Tag className="h-4 w-4 mr-2" />
-              Tag as Consultant
-            </Button>
+        <div className="flex justify-between items-center w-full text-xs text-muted-foreground">
+          <span>Created: {formatDate(clinic.created_at)}</span>
+          {clinic.notes && (
+            <Badge variant="outline" className="text-xs">
+              Has Notes
+            </Badge>
           )}
         </div>
       </CardFooter>

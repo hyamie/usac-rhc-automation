@@ -2,40 +2,36 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, DollarSign } from 'lucide-react';
-
-interface FundingYear {
-  year: number | null;
-  amount: number | null;
-}
+import type { HistoricalFundingItem } from '@/types/database.types';
 
 interface FundingHistoryProps {
-  fundingYear1?: number | null;
-  fundingAmount1?: number | null;
-  fundingYear2?: number | null;
-  fundingAmount2?: number | null;
-  fundingYear3?: number | null;
-  fundingAmount3?: number | null;
-  totalFunding3y?: number | null;
+  historicalFunding: HistoricalFundingItem[] | null;
   layout?: 'vertical' | 'horizontal';
   showTotal?: boolean;
 }
 
 export function FundingHistory({
-  fundingYear1,
-  fundingAmount1,
-  fundingYear2,
-  fundingAmount2,
-  fundingYear3,
-  fundingAmount3,
-  totalFunding3y,
+  historicalFunding,
   layout = 'vertical',
   showTotal = true
 }: FundingHistoryProps) {
-  const fundingData: FundingYear[] = [
-    { year: fundingYear1 ?? null, amount: fundingAmount1 ?? null },
-    { year: fundingYear2 ?? null, amount: fundingAmount2 ?? null },
-    { year: fundingYear3 ?? null, amount: fundingAmount3 ?? null },
-  ].filter((item): item is FundingYear => item.year !== null && item.amount !== null);
+  // Parse and validate historical funding data
+  const fundingData = React.useMemo(() => {
+    if (!historicalFunding || !Array.isArray(historicalFunding)) {
+      return [];
+    }
+
+    return historicalFunding
+      .filter((item): item is HistoricalFundingItem => {
+        return item && typeof item === 'object' && 'year' in item && 'amount' in item;
+      })
+      .sort((a, b) => {
+        // Sort by year descending (most recent first)
+        const yearA = parseInt(a.year);
+        const yearB = parseInt(b.year);
+        return yearB - yearA;
+      });
+  }, [historicalFunding]);
 
   if (fundingData.length === 0) {
     return (
@@ -45,18 +41,21 @@ export function FundingHistory({
     );
   }
 
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return '$0';
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
-  const calculateChange = (current: number | null, previous: number | null) => {
-    if (!current || !previous || previous === 0) return null;
+  const calculateTotal = () => {
+    return fundingData.reduce((sum, item) => sum + (item.amount || 0), 0);
+  };
+
+  const calculateChange = (current: number, previous: number) => {
+    if (!previous || previous === 0) return null;
     return ((current - previous) / previous) * 100;
   };
 
@@ -82,12 +81,12 @@ export function FundingHistory({
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
           <DollarSign className="w-4 h-4" />
-          <span>3-Year Funding History</span>
+          <span>Historical Funding</span>
         </div>
         <div className="flex gap-4">
           {fundingData.map((item, index) => {
-            const prevAmount = index > 0 ? fundingData[index - 1]?.amount : null;
-            const change = calculateChange(item.amount, prevAmount);
+            const prevAmount = index < fundingData.length - 1 ? fundingData[index + 1]?.amount : null;
+            const change = prevAmount ? calculateChange(item.amount, prevAmount) : null;
 
             return (
               <div key={item.year} className="flex-1">
@@ -107,14 +106,14 @@ export function FundingHistory({
             );
           })}
         </div>
-        {showTotal && totalFunding3y && (
+        {showTotal && fundingData.length > 1 && (
           <div className="bg-gray-100 border border-gray-300 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">
-                Total (3 years)
+                Total ({fundingData.length} years)
               </span>
               <span className="text-lg font-bold text-gray-900">
-                {formatCurrency(totalFunding3y)}
+                {formatCurrency(calculateTotal())}
               </span>
             </div>
           </div>
@@ -132,8 +131,8 @@ export function FundingHistory({
       </div>
       <div className="space-y-2">
         {fundingData.map((item, index) => {
-          const prevAmount = index > 0 ? fundingData[index - 1]?.amount : null;
-          const change = calculateChange(item.amount, prevAmount);
+          const prevAmount = index < fundingData.length - 1 ? fundingData[index + 1]?.amount : null;
+          const change = prevAmount ? calculateChange(item.amount, prevAmount) : null;
 
           return (
             <div
@@ -156,13 +155,13 @@ export function FundingHistory({
           );
         })}
       </div>
-      {showTotal && totalFunding3y && (
+      {showTotal && fundingData.length > 1 && (
         <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-300">
           <span className="text-sm font-semibold text-gray-700">
             Total
           </span>
           <span className="text-base font-bold text-blue-700">
-            {formatCurrency(totalFunding3y)}
+            {formatCurrency(calculateTotal())}
           </span>
         </div>
       )}
