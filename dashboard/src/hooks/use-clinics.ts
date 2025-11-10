@@ -9,6 +9,8 @@ export interface ClinicsFilters {
   funding_year?: string
   application_type?: string
   processed?: boolean
+  dateFrom?: string
+  dateTo?: string
 }
 
 export function useClinics(filters: ClinicsFilters = {}) {
@@ -37,6 +39,14 @@ export function useClinics(filters: ClinicsFilters = {}) {
 
       if (filters.processed !== undefined) {
         query = query.eq('processed', filters.processed)
+      }
+
+      if (filters.dateFrom) {
+        query = query.gte('filing_date', filters.dateFrom)
+      }
+
+      if (filters.dateTo) {
+        query = query.lt('filing_date', filters.dateTo)
       }
 
       const { data, error } = await query

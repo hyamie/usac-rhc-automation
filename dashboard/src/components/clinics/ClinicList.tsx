@@ -3,15 +3,16 @@
 import { useState } from 'react'
 import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
-import { DateRangePicker } from '@/components/filters/DateRangePicker'
+import { SingleDayPicker } from '@/components/filters/SingleDayPicker'
 import { ProgramToggle } from '@/components/filters/ProgramToggle'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { startOfDay, addDays } from 'date-fns'
 
 export function ClinicList() {
   const [filters, setFilters] = useState<ClinicsFilters>({})
-  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null })
+  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()))
   const [programType, setProgramType] = useState<'Telecom' | 'Healthcare Connect' | 'All'>('All')
   const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
 
@@ -24,12 +25,14 @@ export function ClinicList() {
     }))
   }
 
-  const handleDateRangeChange = (range: { from: Date | null; to: Date | null }) => {
-    setDateRange(range)
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date)
+    const dateFrom = startOfDay(date).toISOString()
+    const dateTo = addDays(startOfDay(date), 1).toISOString()
     setFilters((prev) => ({
       ...prev,
-      dateFrom: range.from?.toISOString(),
-      dateTo: range.to?.toISOString(),
+      dateFrom,
+      dateTo,
     }))
   }
 
@@ -71,9 +74,9 @@ export function ClinicList() {
     <div className="space-y-6">
       {/* Phase 2 Filters Row */}
       <div className="flex flex-wrap gap-4 items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <DateRangePicker
-          value={dateRange}
-          onChange={handleDateRangeChange}
+        <SingleDayPicker
+          value={selectedDate}
+          onChange={handleDateChange}
         />
         <ProgramToggle
           value={programType}
