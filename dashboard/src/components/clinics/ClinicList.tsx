@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
 import { SingleDayPicker } from '@/components/filters/SingleDayPicker'
-import { ProgramToggle } from '@/components/filters/ProgramToggle'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
@@ -13,7 +12,6 @@ import { startOfDay, addDays } from 'date-fns'
 export function ClinicList() {
   const [filters, setFilters] = useState<ClinicsFilters>({})
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()))
-  const [programType, setProgramType] = useState<'Telecom' | 'Healthcare Connect' | 'All'>('All')
   const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
 
   const { data: clinics, isLoading, error, refetch } = useClinics(filters)
@@ -33,14 +31,6 @@ export function ClinicList() {
       ...prev,
       dateFrom,
       dateTo,
-    }))
-  }
-
-  const handleProgramTypeChange = (value: 'Telecom' | 'Healthcare Connect' | 'All') => {
-    setProgramType(value)
-    setFilters((prev) => ({
-      ...prev,
-      programType: value === 'All' ? undefined : value,
     }))
   }
 
@@ -77,10 +67,6 @@ export function ClinicList() {
         <SingleDayPicker
           value={selectedDate}
           onChange={handleDateChange}
-        />
-        <ProgramToggle
-          value={programType}
-          onChange={handleProgramTypeChange}
         />
         <ConsultantFilter
           value={consultantFilter}
