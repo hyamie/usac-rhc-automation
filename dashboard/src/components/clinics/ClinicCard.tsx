@@ -153,17 +153,17 @@ export function ClinicCard({ clinic, onUpdate }: ClinicCardProps) {
           </div>
           <div className="flex gap-2 flex-wrap justify-end">
             {clinic.funding_year && (
-              <Badge variant="outline" className="bg-blue-50">
+              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 dark:text-blue-100 dark:border-blue-800">
                 FY {clinic.funding_year}
               </Badge>
             )}
             {clinic.processed && (
-              <Badge variant="default" className="bg-green-600">
+              <Badge variant="default" className="bg-green-600 dark:bg-green-700">
                 Processed
               </Badge>
             )}
             {outreachStarted && (
-              <Badge variant="default" className="bg-orange-600">
+              <Badge variant="default" className="bg-orange-600 dark:bg-orange-700">
                 <Send className="h-3 w-3 mr-1" />
                 {clinic.outreach_status === 'ready_for_outreach' && 'Ready'}
                 {clinic.outreach_status === 'outreach_sent' && 'Sent'}
