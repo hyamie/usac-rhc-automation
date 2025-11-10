@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function DashboardLayout({
   children,
@@ -17,13 +18,14 @@ export default function DashboardLayout({
                 Rural Health Care Form 465 Outreach Pipeline
               </p>
             </div>
-            <nav className="flex gap-4">
+            <nav className="flex gap-4 items-center">
               <Link
                 href="/dashboard"
                 className="text-sm font-medium hover:text-primary transition-colors"
               >
                 Dashboard
               </Link>
+              <ThemeToggle />
             </nav>
           </div>
         </div>

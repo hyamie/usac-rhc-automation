@@ -5,6 +5,7 @@ import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
 import { SingleDayPicker } from '@/components/filters/SingleDayPicker'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
+import { FundingYearFilter } from '@/components/filters/FundingYearFilter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Search } from 'lucide-react'
@@ -14,8 +15,11 @@ export function ClinicList() {
   const [filters, setFilters] = useState<ClinicsFilters>({})
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()))
   const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
+  const [fundingYear, setFundingYear] = useState<'all' | '2025' | '2026'>('all')
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [displayLimit, setDisplayLimit] = useState(50)
+  const [showAll, setShowAll] = useState(false)
 
   const { data: clinics, isLoading, error, refetch } = useClinics(filters)
 
@@ -35,6 +39,12 @@ export function ClinicList() {
       searchTerm: debouncedSearch || undefined,
     }))
   }, [debouncedSearch])
+
+  // Reset display limit when filters change
+  useEffect(() => {
+    setDisplayLimit(50)
+    setShowAll(false)
+  }, [filters])
 
   const handleFilterChange = (key: keyof ClinicsFilters, value: any) => {
     setFilters((prev) => ({
@@ -62,6 +72,14 @@ export function ClinicList() {
     }))
   }
 
+  const handleFundingYearChange = (value: 'all' | '2025' | '2026') => {
+    setFundingYear(value)
+    setFilters((prev) => ({
+      ...prev,
+      funding_year: value === 'all' ? undefined : value,
+    }))
+  }
+
   // Calculate counts for consultant filter (removed - consultant detection not in current schema)
   const consultantCounts = {
     all: clinics?.length || 0,
@@ -82,48 +100,25 @@ export function ClinicList() {
 
   return (
     <div className="space-y-6">
-      {/* Phase 2 Filters Row */}
-      <div className="flex flex-wrap gap-4 items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <SingleDayPicker
-          value={selectedDate}
-          onChange={handleDateChange}
+      {/* Primary Filters Row - Funding Year, Contacts, Date */}
+      <div className="flex flex-wrap gap-4 items-center p-4 bg-muted/50 rounded-lg border">
+        <FundingYearFilter
+          value={fundingYear}
+          onChange={handleFundingYearChange}
         />
         <ConsultantFilter
           value={consultantFilter}
           onChange={handleConsultantFilterChange}
           counts={consultantCounts}
         />
+        <SingleDayPicker
+          value={selectedDate}
+          onChange={handleDateChange}
+        />
       </div>
 
-      {/* Filters */}
+      {/* Secondary Filters Row - Status & Search */}
       <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex gap-2 items-center">
-          <span className="text-sm font-medium">Funding Year:</span>
-          <div className="flex gap-1">
-            <Button
-              variant={filters.funding_year === undefined ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('funding_year', 'all')}
-            >
-              All
-            </Button>
-            <Button
-              variant={filters.funding_year === '2025' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('funding_year', '2025')}
-            >
-              2025
-            </Button>
-            <Button
-              variant={filters.funding_year === '2026' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('funding_year', '2026')}
-            >
-              2026
-            </Button>
-          </div>
-        </div>
-
         <div className="flex gap-2 items-center">
           <span className="text-sm font-medium">Status:</span>
           <div className="flex gap-1">
@@ -177,20 +172,59 @@ export function ClinicList() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : clinics && clinics.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {clinics.map((clinic) => (
-            <ClinicCard key={clinic.id} clinic={clinic} onUpdate={() => refetch()} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {(showAll ? clinics : clinics.slice(0, displayLimit)).map((clinic) => (
+              <ClinicCard key={clinic.id} clinic={clinic} onUpdate={() => refetch()} />
+            ))}
+          </div>
+
+          {/* Load More / Show All Controls */}
+          {!showAll && clinics.length > displayLimit && (
+            <div className="flex flex-col items-center gap-4 pt-6">
+              <div className="text-sm text-muted-foreground">
+                Showing {displayLimit} of {clinics.length} clinics
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setDisplayLimit(prev => Math.min(prev + 50, clinics.length))}
+                >
+                  Load 50 More
+                </Button>
+                <Button
+                  onClick={() => setShowAll(true)}
+                >
+                  Show All ({clinics.length})
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {showAll && clinics.length > 50 && (
+            <div className="text-center pt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAll(false)
+                  setDisplayLimit(50)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+              >
+                Show Less
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <p>No clinics found matching your filters.</p>
         </div>
       )}
 
-      {clinics && clinics.length > 0 && (
+      {clinics && clinics.length > 0 && showAll && (
         <div className="text-sm text-muted-foreground text-center">
-          Showing {clinics.length} clinic{clinics.length !== 1 ? 's' : ''}
+          Showing all {clinics.length} clinic{clinics.length !== 1 ? 's' : ''}
         </div>
       )}
     </div>
