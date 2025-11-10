@@ -7,6 +7,7 @@ import { ClinicCardSkeleton } from './ClinicCardSkeleton'
 import { SingleDayPicker } from '@/components/filters/SingleDayPicker'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { FundingYearFilter } from '@/components/filters/FundingYearFilter'
+import { StateFilter } from '@/components/filters/StateFilter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Search, Grid3x3, List, Columns2, FolderOpen, Map as MapIcon } from 'lucide-react'
@@ -26,6 +27,7 @@ export function ClinicList() {
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()))
   const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
   const [fundingYear, setFundingYear] = useState<'all' | '2025' | '2026'>('all')
+  const [stateFilter, setStateFilter] = useState<'all' | string>('all')
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [displayLimit, setDisplayLimit] = useState(50)
@@ -91,6 +93,14 @@ export function ClinicList() {
     }))
   }
 
+  const handleStateFilterChange = (value: 'all' | string) => {
+    setStateFilter(value)
+    setFilters((prev) => ({
+      ...prev,
+      state: value === 'all' ? undefined : value,
+    }))
+  }
+
   // Calculate counts for consultant filter (removed - consultant detection not in current schema)
   const consultantCounts = {
     all: clinics?.length || 0,
@@ -111,11 +121,15 @@ export function ClinicList() {
 
   return (
     <div className="space-y-6">
-      {/* Primary Filters Row - Funding Year, Contacts, Date */}
+      {/* Primary Filters Row - Funding Year, State, Contacts, Date */}
       <div className="flex flex-wrap gap-4 items-center p-4 bg-muted/50 rounded-lg border">
         <FundingYearFilter
           value={fundingYear}
           onChange={handleFundingYearChange}
+        />
+        <StateFilter
+          value={stateFilter}
+          onChange={handleStateFilterChange}
         />
         <ConsultantFilter
           value={consultantFilter}
@@ -316,6 +330,7 @@ export function ClinicList() {
               setFilters({})
               setSearchInput('')
               setFundingYear('all')
+              setStateFilter('all')
               setConsultantFilter('all')
             }}
           >
