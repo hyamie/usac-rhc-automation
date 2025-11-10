@@ -8,9 +8,10 @@ export interface ClinicsFilters {
   state?: string
   funding_year?: string
   application_type?: string
-  processed?: boolean
+  processed?: boolean | 'has_notes'  // Can be true, false, or 'has_notes'
   dateFrom?: string
   dateTo?: string
+  searchTerm?: string  // Search across all text fields
 }
 
 export function useClinics(filters: ClinicsFilters = {}) {
@@ -37,8 +38,14 @@ export function useClinics(filters: ClinicsFilters = {}) {
         query = query.eq('application_type', filters.application_type)
       }
 
+      // Handle processed filter (including 'has_notes' option)
       if (filters.processed !== undefined) {
-        query = query.eq('processed', filters.processed)
+        if (filters.processed === 'has_notes') {
+          // Filter for clinics with non-empty notes array
+          query = query.not('notes', 'eq', '[]')
+        } else {
+          query = query.eq('processed', filters.processed)
+        }
       }
 
       if (filters.dateFrom) {
@@ -47,6 +54,30 @@ export function useClinics(filters: ClinicsFilters = {}) {
 
       if (filters.dateTo) {
         query = query.lt('filing_date', filters.dateTo)
+      }
+
+      // Handle search term - search across all text fields
+      if (filters.searchTerm && filters.searchTerm.trim()) {
+        const searchPattern = `%${filters.searchTerm.trim()}%`
+        query = query.or(`
+          clinic_name.ilike.${searchPattern},
+          hcp_number.ilike.${searchPattern},
+          application_number.ilike.${searchPattern},
+          address.ilike.${searchPattern},
+          city.ilike.${searchPattern},
+          state.ilike.${searchPattern},
+          zip.ilike.${searchPattern},
+          contact_phone.ilike.${searchPattern},
+          contact_email.ilike.${searchPattern},
+          mail_contact_first_name.ilike.${searchPattern},
+          mail_contact_last_name.ilike.${searchPattern},
+          mail_contact_org_name.ilike.${searchPattern},
+          mail_contact_phone.ilike.${searchPattern},
+          mail_contact_email.ilike.${searchPattern},
+          service_type.ilike.${searchPattern},
+          funding_year.ilike.${searchPattern},
+          application_type.ilike.${searchPattern}
+        `.replace(/\s+/g, ''))
       }
 
       const { data, error } = await query

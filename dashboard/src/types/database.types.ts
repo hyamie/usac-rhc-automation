@@ -60,7 +60,7 @@ export interface Database {
           processed: boolean
           outreach_status: 'pending' | 'ready_for_outreach' | 'outreach_sent' | 'follow_up' | 'completed'
           assigned_to: string | null
-          notes: string | null
+          notes: Json | null  // JSONB array of NoteItem objects
           email_draft_created: boolean
 
           // System timestamps
@@ -117,7 +117,7 @@ export interface Database {
           processed?: boolean
           outreach_status?: 'pending' | 'ready_for_outreach' | 'outreach_sent' | 'follow_up' | 'completed'
           assigned_to?: string | null
-          notes?: string | null
+          notes?: Json | null  // JSONB array of NoteItem objects
           email_draft_created?: boolean
 
           // System timestamps
@@ -174,7 +174,7 @@ export interface Database {
           processed?: boolean
           outreach_status?: 'pending' | 'ready_for_outreach' | 'outreach_sent' | 'follow_up' | 'completed'
           assigned_to?: string | null
-          notes?: string | null
+          notes?: Json | null  // JSONB array of NoteItem objects
           email_draft_created?: boolean
 
           // System timestamps
@@ -228,4 +228,10 @@ export interface Database {
 export interface HistoricalFundingItem {
   year: string
   amount: number
+}
+
+// Helper type for notes array items
+export interface NoteItem {
+  timestamp: string  // ISO 8601 timestamp
+  note: string       // The note text content
 }

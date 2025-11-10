@@ -12,9 +12,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { FundingHistory } from './FundingHistory'
+import { NotesModal } from './NotesModal'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import type { Database, HistoricalFundingItem } from '@/types/database.types'
-import { MapPin, Calendar, DollarSign, FileText, Mail, Phone, User, Building2, Send, Tag, CheckCircle2 } from 'lucide-react'
+import type { Database, HistoricalFundingItem, NoteItem } from '@/types/database.types'
+import { MapPin, Calendar, DollarSign, FileText, Mail, Phone, User, Building2, Send, Tag, CheckCircle2, FileEdit } from 'lucide-react'
 import { useState } from 'react'
 
 type Clinic = Database['public']['Tables']['clinics_pending_review']['Row']
@@ -27,12 +28,17 @@ interface ClinicCardProps {
 export function ClinicCard({ clinic, onUpdate }: ClinicCardProps) {
   const [showFunding, setShowFunding] = useState(false)
   const [showContacts, setShowContacts] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
   const [isStartingOutreach, setIsStartingOutreach] = useState(false)
   const [isTogglingPrimaryConsultant, setIsTogglingPrimaryConsultant] = useState(false)
   const [isTogglingMailConsultant, setIsTogglingMailConsultant] = useState(false)
 
   // Parse historical funding JSONB
   const historicalFunding = clinic.historical_funding as HistoricalFundingItem[] | null
+
+  // Parse notes JSONB
+  const notes = (clinic.notes as NoteItem[] | null) || []
+  const notesCount = notes.length
 
   // Determine if outreach is already started
   const outreachStarted = clinic.outreach_status !== 'pending'
@@ -388,13 +394,29 @@ export function ClinicCard({ clinic, onUpdate }: ClinicCardProps) {
       <CardFooter className="flex flex-col gap-2">
         <div className="flex justify-between items-center w-full text-xs text-muted-foreground">
           <span>Created: {formatDate(clinic.created_at)}</span>
-          {clinic.notes && (
-            <Badge variant="outline" className="text-xs">
-              Has Notes
-            </Badge>
-          )}
         </div>
+
+        {/* Notes Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => setShowNotes(true)}
+        >
+          <FileEdit className="h-4 w-4 mr-2" />
+          {notesCount > 0 ? `Notes (${notesCount})` : 'Notes'}
+        </Button>
       </CardFooter>
+
+      {/* Notes Modal */}
+      <NotesModal
+        clinicId={clinic.id}
+        clinicName={clinic.clinic_name}
+        notes={notes}
+        open={showNotes}
+        onOpenChange={setShowNotes}
+        onUpdate={onUpdate}
+      />
     </Card>
   )
 }

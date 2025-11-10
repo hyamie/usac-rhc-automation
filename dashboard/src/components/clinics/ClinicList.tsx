@@ -1,20 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
 import { SingleDayPicker } from '@/components/filters/SingleDayPicker'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Loader2, Search } from 'lucide-react'
 import { startOfDay, addDays } from 'date-fns'
 
 export function ClinicList() {
   const [filters, setFilters] = useState<ClinicsFilters>({})
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()))
   const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const { data: clinics, isLoading, error, refetch } = useClinics(filters)
+
+  // Debounce search input (500ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // Update filters when debounced search changes
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      searchTerm: debouncedSearch || undefined,
+    }))
+  }, [debouncedSearch])
 
   const handleFilterChange = (key: keyof ClinicsFilters, value: any) => {
     setFilters((prev) => ({
@@ -105,7 +125,7 @@ export function ClinicList() {
         </div>
 
         <div className="flex gap-2 items-center">
-          <span className="text-sm font-medium">Processed:</span>
+          <span className="text-sm font-medium">Status:</span>
           <div className="flex gap-1">
             <Button
               variant={filters.processed === undefined ? 'default' : 'outline'}
@@ -128,7 +148,26 @@ export function ClinicList() {
             >
               Done
             </Button>
+            <Button
+              variant={filters.processed === 'has_notes' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleFilterChange('processed', 'has_notes')}
+            >
+              Has Notes
+            </Button>
           </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="flex-1 min-w-[200px] relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search all fields..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-10"
+          />
         </div>
       </div>
 
