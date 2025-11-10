@@ -122,12 +122,26 @@ export function ClinicCard({ clinic, onUpdate }: ClinicCardProps) {
     }
   }
 
+  // Determine status color for left border
+  const getStatusColor = () => {
+    if (clinic.processed) return 'border-l-green-500'
+    if (outreachStarted) return 'border-l-orange-500'
+    if (notesCount > 0) return 'border-l-blue-500'
+    return 'border-l-gray-300'
+  }
+
   return (
-    <Card className="hover:shadow-lg transition-shadow">
-      <CardHeader>
+    <Card className={`
+      hover:shadow-xl hover:-translate-y-1 transition-all duration-200
+      border-l-4 ${getStatusColor()}
+      group cursor-pointer
+    `}>
+      <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <CardTitle className="text-lg">{clinic.clinic_name}</CardTitle>
+            <CardTitle className="text-xl font-bold group-hover:text-primary transition-colors">
+              {clinic.clinic_name}
+            </CardTitle>
             <CardDescription className="mt-1">
               HCP #{clinic.hcp_number}
               {clinic.application_number && (

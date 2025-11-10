@@ -3,13 +3,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
+import { ClinicCardSkeleton } from './ClinicCardSkeleton'
 import { SingleDayPicker } from '@/components/filters/SingleDayPicker'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { FundingYearFilter } from '@/components/filters/FundingYearFilter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2, Search, Grid3x3, List, Columns2, FolderOpen } from 'lucide-react'
 import { startOfDay, addDays } from 'date-fns'
+
+type ViewMode = 'grid' | 'list' | 'compact'
 
 export function ClinicList() {
   const [filters, setFilters] = useState<ClinicsFilters>({})
@@ -20,6 +23,7 @@ export function ClinicList() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [displayLimit, setDisplayLimit] = useState(50)
   const [showAll, setShowAll] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
 
   const { data: clinics, isLoading, error, refetch } = useClinics(filters)
 
@@ -118,62 +122,104 @@ export function ClinicList() {
       </div>
 
       {/* Secondary Filters Row - Status & Search */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex gap-2 items-center">
-          <span className="text-sm font-medium">Status:</span>
-          <div className="flex gap-1">
-            <Button
-              variant={filters.processed === undefined ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('processed', 'all')}
-            >
-              All
-            </Button>
-            <Button
-              variant={filters.processed === false ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('processed', false)}
-            >
-              Pending
-            </Button>
-            <Button
-              variant={filters.processed === true ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('processed', true)}
-            >
-              Done
-            </Button>
-            <Button
-              variant={filters.processed === 'has_notes' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('processed', 'has_notes')}
-            >
-              Has Notes
-            </Button>
+      <div className="flex flex-wrap gap-3 items-center justify-between">
+        <div className="flex gap-3 items-center flex-wrap">
+          <div className="flex gap-2 items-center">
+            <span className="text-sm font-medium">Status:</span>
+            <div className="flex gap-1">
+              <Button
+                variant={filters.processed === undefined ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleFilterChange('processed', 'all')}
+              >
+                All
+              </Button>
+              <Button
+                variant={filters.processed === false ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleFilterChange('processed', false)}
+              >
+                Pending
+              </Button>
+              <Button
+                variant={filters.processed === true ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleFilterChange('processed', true)}
+              >
+                Done
+              </Button>
+              <Button
+                variant={filters.processed === 'has_notes' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleFilterChange('processed', 'has_notes')}
+              >
+                Has Notes
+              </Button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="flex-1 min-w-[200px] relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search all fields..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex-1 min-w-[200px] relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search all fields..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-10"
-          />
+        {/* View Mode Toggle */}
+        <div className="flex gap-1 border rounded-lg p-1 bg-muted/50">
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('grid')}
+            className="h-8 px-3"
+          >
+            <Grid3x3 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className="h-8 px-3"
+          >
+            <Columns2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'compact' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('compact')}
+            className="h-8 px-3"
+          >
+            <List className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {/* Results */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className={`
+          grid gap-6
+          ${viewMode === 'grid' ? 'md:grid-cols-2 lg:grid-cols-3' : ''}
+          ${viewMode === 'list' ? 'md:grid-cols-2' : ''}
+          ${viewMode === 'compact' ? 'grid-cols-1' : ''}
+        `}>
+          {[...Array(6)].map((_, i) => (
+            <ClinicCardSkeleton key={i} />
+          ))}
         </div>
       ) : clinics && clinics.length > 0 ? (
         <>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className={`
+            grid gap-6
+            ${viewMode === 'grid' ? 'md:grid-cols-2 lg:grid-cols-3' : ''}
+            ${viewMode === 'list' ? 'md:grid-cols-2' : ''}
+            ${viewMode === 'compact' ? 'grid-cols-1' : ''}
+          `}>
             {(showAll ? clinics : clinics.slice(0, displayLimit)).map((clinic) => (
               <ClinicCard key={clinic.id} clinic={clinic} onUpdate={() => refetch()} />
             ))}
@@ -217,8 +263,25 @@ export function ClinicList() {
           )}
         </>
       ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          <p>No clinics found matching your filters.</p>
+        <div className="flex flex-col items-center justify-center py-20 px-4">
+          <div className="rounded-full bg-muted p-6 mb-6">
+            <FolderOpen className="h-16 w-16 text-muted-foreground" />
+          </div>
+          <h3 className="text-2xl font-semibold mb-2">No Clinics Found</h3>
+          <p className="text-muted-foreground text-center max-w-md mb-6">
+            No clinics match your current filters. Try adjusting your search criteria or clearing some filters.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setFilters({})
+              setSearchInput('')
+              setFundingYear('all')
+              setConsultantFilter('all')
+            }}
+          >
+            Clear All Filters
+          </Button>
         </div>
       )}
 
