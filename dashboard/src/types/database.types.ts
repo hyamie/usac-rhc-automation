@@ -26,6 +26,7 @@ export interface Database {
           // Contact fields (primary)
           contact_phone: string | null
           contact_email: string | null
+          contact_is_consultant: boolean
 
           // NEW: Mail contact fields from USAC
           mail_contact_first_name: string | null
@@ -33,6 +34,7 @@ export interface Database {
           mail_contact_org_name: string | null
           mail_contact_phone: string | null
           mail_contact_email: string | null
+          mail_contact_is_consultant: boolean
 
           // Filing details
           filing_date: string
@@ -56,6 +58,7 @@ export interface Database {
 
           // Internal tracking
           processed: boolean
+          outreach_status: 'pending' | 'ready_for_outreach' | 'outreach_sent' | 'follow_up' | 'completed'
           assigned_to: string | null
           notes: string | null
           email_draft_created: boolean
@@ -80,6 +83,7 @@ export interface Database {
           // Contact fields (primary)
           contact_phone?: string | null
           contact_email?: string | null
+          contact_is_consultant?: boolean
 
           // Mail contact fields
           mail_contact_first_name?: string | null
@@ -87,6 +91,7 @@ export interface Database {
           mail_contact_org_name?: string | null
           mail_contact_phone?: string | null
           mail_contact_email?: string | null
+          mail_contact_is_consultant?: boolean
 
           // Filing details
           filing_date: string
@@ -110,6 +115,7 @@ export interface Database {
 
           // Internal tracking
           processed?: boolean
+          outreach_status?: 'pending' | 'ready_for_outreach' | 'outreach_sent' | 'follow_up' | 'completed'
           assigned_to?: string | null
           notes?: string | null
           email_draft_created?: boolean
@@ -134,6 +140,7 @@ export interface Database {
           // Contact fields (primary)
           contact_phone?: string | null
           contact_email?: string | null
+          contact_is_consultant?: boolean
 
           // Mail contact fields
           mail_contact_first_name?: string | null
@@ -141,6 +148,7 @@ export interface Database {
           mail_contact_org_name?: string | null
           mail_contact_phone?: string | null
           mail_contact_email?: string | null
+          mail_contact_is_consultant?: boolean
 
           // Filing details
           filing_date?: string
@@ -164,6 +172,7 @@ export interface Database {
 
           // Internal tracking
           processed?: boolean
+          outreach_status?: 'pending' | 'ready_for_outreach' | 'outreach_sent' | 'follow_up' | 'completed'
           assigned_to?: string | null
           notes?: string | null
           email_draft_created?: boolean

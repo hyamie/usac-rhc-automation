@@ -15,7 +15,7 @@ export function ClinicList() {
   const [programType, setProgramType] = useState<'Telecom' | 'Healthcare Connect' | 'All'>('All')
   const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
 
-  const { data: clinics, isLoading, error } = useClinics(filters)
+  const { data: clinics, isLoading, error, refetch } = useClinics(filters)
 
   const handleFilterChange = (key: keyof ClinicsFilters, value: any) => {
     setFilters((prev) => ({
@@ -116,33 +116,6 @@ export function ClinicList() {
         </div>
 
         <div className="flex gap-2 items-center">
-          <span className="text-sm font-medium">Application Type:</span>
-          <div className="flex gap-1">
-            <Button
-              variant={filters.application_type === undefined ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('application_type', 'all')}
-            >
-              All
-            </Button>
-            <Button
-              variant={filters.application_type === 'New' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('application_type', 'New')}
-            >
-              New
-            </Button>
-            <Button
-              variant={filters.application_type === 'Renewal' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleFilterChange('application_type', 'Renewal')}
-            >
-              Renewal
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex gap-2 items-center">
           <span className="text-sm font-medium">Processed:</span>
           <div className="flex gap-1">
             <Button
@@ -178,7 +151,7 @@ export function ClinicList() {
       ) : clinics && clinics.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {clinics.map((clinic) => (
-            <ClinicCard key={clinic.id} clinic={clinic} />
+            <ClinicCard key={clinic.id} clinic={clinic} onUpdate={() => refetch()} />
           ))}
         </div>
       ) : (

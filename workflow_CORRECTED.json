@@ -1,0 +1,1273 @@
+{
+  "updatedAt": "2025-11-09T01:45:46.000Z",
+  "createdAt": "2025-11-07T11:47:38.269Z",
+  "id": "6Pv9uvzKec5xInWS",
+  "name": "USAC RHC - Main Daily Workflow V2 (Phase 2)",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://opendata.usac.org/resource/96rf-xd57.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "program",
+              "value": "Telecom"
+            },
+            {
+              "name": "$where",
+              "value": "=posting_start_date>='{{$now.minus(1, 'day').toFormat('yyyy-MM-dd')}}'"
+            },
+            {
+              "name": "$limit",
+              "value": "1000"
+            },
+            {
+              "name": "$order",
+              "value": "posting_start_date DESC"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Fetch Form 465 Filings (USAC API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -1104,
+        -736
+      ],
+      "id": "0a3f926e-91d0-47e7-b2e2-a929901d3649"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process USAC API response and extract all fields\nconst filings = $input.all();\nconst processedFilings = [];\n\nfor (const filing of filings) {\n  const data = filing.json;\n  \n  // Extract contact information\n  const contactEmail = data.contact_email_address || '';\n  const mailContactEmail = data.mail_contact_email || '';\n  const contactDomain = contactEmail.split('@')[1] || '';\n  const mailDomain = mailContactEmail.split('@')[1] || '';\n  \n  // Consultant detection logic\n  const isConsultant = contactDomain !== mailDomain && mailDomain !== '';\n  \n  // Generate deduplication hash\n  const crypto = require('crypto');\n  const hashString = `${data.hcp_number}-${data.posting_date}-${data.site_name}-${data.site_address}`;\n  const hash = crypto.createHash('sha256').update(hashString).digest('hex');\n  \n  // Build processed filing object with all Phase 2 fields\n  const processed = {\n    // Core identifiers\n    hcp_number: data.hcp_number || data.health_care_provider_number,\n    application_number: data.application_number || data.form_465_application_number,\n    form_465_hash: hash,\n    \n    // Clinic information\n    clinic_name: data.site_name || data.health_care_provider_name,\n    address: data.site_address || data.service_delivery_site_physical_address,\n    city: data.site_city || data.service_delivery_site_city,\n    state: data.site_state || data.service_delivery_site_state,\n    zip: data.site_zip || data.service_delivery_site_zip_code,\n    \n    // Contact information\n    contact_name: data.contact_person_name || data.contact_name,\n    contact_title: data.contact_person_title || data.contact_title,\n    contact_email: contactEmail,\n    contact_phone: data.contact_phone_number || data.contact_telephone_number,\n    \n    // Mail contact (potentially consultant)\n    mail_contact_name: data.mail_contact_name || data.mailing_contact_name,\n    mail_contact_email: mailContactEmail,\n    mail_contact_company: data.mail_contact_company || data.mailing_contact_company,\n    \n    // Consultant detection\n    is_consultant: isConsultant,\n    consultant_company: isConsultant ? (data.mail_contact_company || data.mailing_contact_company) : null,\n    consultant_email_domain: isConsultant ? mailDomain : null,\n    consultant_detection_method: isConsultant ? 'auto_domain' : null,\n    \n    // Dates\n    posting_date: data.posting_date,\n    filing_date: data.form_465_date_certified || data.posting_date,\n    allowable_contract_start_date: data.allowable_contract_date,\n    \n    // Program information\n    program_type: 'Telecom',\n    service_type: data.service_type || data.type_of_service,\n    description_of_services: data.narrative_description || data.description,\n    \n    // Contract details\n    contract_length: data.contract_term_months || null,\n    bandwidth: data.bandwidth_mbps || null,\n    \n    // PDF URL\n    form_465_pdf_url: data.application_number ? `https://rhc.usac.org/rhc/public/viewPdf.seam?documentId=${data.application_number}` : null,\n    \n    // Status\n    processed: false,\n    created_at: new Date().toISOString()\n  };\n  \n  processedFilings.push({ json: processed });\n}\n\nreturn processedFilings;"
+      },
+      "name": "Process & Extract All Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        -800
+      ],
+      "id": "b4f79318-9115-48fb-8fa8-c825830a7791"
+    },
+    {
+      "parameters": {
+        "url": "https://opendata.usac.org/resource/2kme-evqq.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$where",
+              "value": "=filing_hcp='{{$json.hcp_number}}' AND funding_year IN ('2023','2024','2025')"
+            },
+            {
+              "name": "$select",
+              "value": "funding_year,original_requested_amount"
+            },
+            {
+              "name": "$order",
+              "value": "funding_year DESC"
+            },
+            {
+              "name": "$limit",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Query Historical Funding (3 Years)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -480,
+        -928
+      ],
+      "id": "cce31c21-6061-4901-9ea9-880cf15b0e51",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simple merge: Just add funding data to clinic record\n  const allInputs = $input.all();\n\n  // First item is the clinic, rest are funding records\n  const filing = allInputs[0].json;\n  const historicalData = allInputs.slice(1);\n\n  // Add funding data if available\n  if (historicalData.length > 0) {\n    historicalData.forEach((record, index) => {\n      const data = record.json;\n      if (index < 3) {\n        filing[`funding_year_${index + 1}`] = parseInt(data.funding_year) || null;\n        filing[`funding_amount_${index + 1}`] = parseFloat(data.original_requested_amount) || 0;\n      }\n    });\n\n    // Calculate total\n    filing.total_funding_3y = (filing.funding_amount_1 || 0) +\n                              (filing.funding_amount_2 || 0) +\n                              (filing.funding_amount_3 || 0);\n  } else {\n    // No funding data\n    filing.total_funding_3y = 0;\n  }\n\n  return { json: filing };"
+      },
+      "name": "Calculate Priority & Merge Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        -928
+      ],
+      "id": "b0d803a7-1ab4-4894-a457-65a6b684d552"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "Insert into Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        96,
+        -912
+      ],
+      "id": "357f0cb4-3109-4370-bf31-0828a15461d0",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "BSTshGqptOkc5u7r",
+          "name": "Custom Auth account"
+        },
+        "supabaseApi": {
+          "id": "VxMG4ykQ9szz8skf",
+          "name": "Supabase account"
+        },
+        "httpHeaderAuth": {
+          "id": "xZGRc1khUfsbTXQ1",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger - Weekly Monday 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1344,
+        160
+      ],
+      "id": "a4b21296-d31b-4721-9196-b18531a0a829"
+    },
+    {
+      "parameters": {
+        "url": "https://www.usac.org/rural-health-care/resources/news/",
+        "options": {}
+      },
+      "name": "Scrape USAC News Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -1152,
+        160
+      ],
+      "id": "f6abdd5d-e97e-4d49-9fd3-a5a777f62f07"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse HTML for news items\n// NOTE: This is a simplified parser - adjust based on actual USAC HTML structure\n\nconst html = $json.body;\nconst newsItems = [];\n\n// Regex to find news article titles and dates\n// Adjust this regex based on actual USAC news page structure\nconst titleRegex = /<h2[^>]*>(.*?)<\\/h2>/g;\nconst dateRegex = /<time[^>]*datetime=\"([^\"]+)\"[^>]*>/g;\nconst urlRegex = /<a[^>]*href=\"([^\"]+)\"[^>]*>/g;\n\nlet match;\nwhile ((match = titleRegex.exec(html)) !== null) {\n  const title = match[1].replace(/<[^>]*>/g, '').trim();\n  newsItems.push({ title });\n}\n\n// Get first news item as latest\nconst latestNews = newsItems[0] || { title: 'No news found' };\n\nreturn latestNews;"
+      },
+      "name": "Parse Latest News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -944,
+        160
+      ],
+      "id": "10a4361d-1450-4931-8869-7786dca342fc"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/system_alerts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "options": {}
+      },
+      "name": "Get Last Known Update from Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -752,
+        160
+      ],
+      "id": "caf36803-f1d0-490b-a0c9-e6950fe9ff3b",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "BSTshGqptOkc5u7r",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare latest news with last known update\nconst latestNews = $input.item(0).json;\nconst lastKnownUpdate = $input.item(1).json[0];\n\nif (!lastKnownUpdate || latestNews.title !== lastKnownUpdate.title) {\n  return [latestNews];\n}\n\nreturn [];"
+      },
+      "name": "Compare with Last Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -544,
+        160
+      ],
+      "id": "be55a5fd-3157-4680-91ae-d09f94cac095"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json !== undefined}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "IF: New Update Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        160
+      ],
+      "id": "648cb7c1-ebe2-4cd7-8a52-2dba33ab9282"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/system_alerts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alert_type",
+              "value": "usac_rule_update"
+            },
+            {
+              "name": "title",
+              "value": "={{$json.title}}"
+            },
+            {
+              "name": "message",
+              "value": "New USAC RHC rule update detected. Please review the latest changes."
+            },
+            {
+              "name": "url",
+              "value": "={{$json.url || 'https://www.usac.org/rural-health-care/resources/news/'}}"
+            },
+            {
+              "name": "severity",
+              "value": "warning"
+            },
+            {
+              "name": "read",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Insert Alert into Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -144,
+        48
+      ],
+      "id": "0ae68fa3-3bf5-44f1-b9ca-8e4a9f3d4ad0",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "BSTshGqptOkc5u7r",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "No New Updates - End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        256
+      ],
+      "id": "b9bf5af9-82de-476e-89c2-89dae78b7477"
+    },
+    {
+      "parameters": {
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -448,
+        -160
+      ],
+      "id": "75592b6f-916f-48ff-80de-df6dee8a9de8",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-5-20250929",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -400,
+        0
+      ],
+      "id": "fc1181b5-707e-4fee-b687-42525d2850a8",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "ElLGWUCadkvsSxxu",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract enrichment findings from search results (TEXT ONLY - strip images)\nconst inputData = $input.first().json;\nconst clinic = {};\n\n// Copy only primitive/text fields from clinic data (no images/binary)\nfor (const key in inputData) {\n  const value = inputData[key];\n  // Only copy primitive types (string, number, boolean, null)\n  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined) {\n    clinic[key] = value;\n  }\n}\n\nlet enrichmentFinding = '';\n\n// Check if we have search results - extract TEXT ONLY\nif (inputData.items && Array.isArray(inputData.items) && inputData.items.length > 0) {\n  const topResult = inputData.items[0];\n  // Only extract text snippet - ignore images, pagemap, etc.\n  enrichmentFinding = topResult.snippet || '';\n  \n  // Extract key details from TEXT\n  if (enrichmentFinding.includes('years')) {\n    const yearsMatch = enrichmentFinding.match(/(\\d+)\\s*years/);\n    if (yearsMatch) {\n      clinic.years_experience = parseInt(yearsMatch[1]);\n    }\n  }\n  \n  // Look for certifications or notable achievements\n  const certifications = ['RCDD', 'CCNA', 'PMP', 'CISSP', 'telecom', 'network'];\n  for (const cert of certifications) {\n    if (enrichmentFinding.toLowerCase().includes(cert.toLowerCase())) {\n      clinic.has_telecom_background = true;\n      break;\n    }\n  }\n}\n\nclinic.enrichment_finding = enrichmentFinding || 'Healthcare telecom professional';\nclinic.enriched = true;\nclinic.enrichment_date = new Date().toISOString();\n\n// Return ONLY text data - no images/binary\nreturn { json: clinic };"
+      },
+      "name": "Extract Enrichment Findings (Text Only)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        -128
+      ],
+      "id": "f7d12491-4fd0-45e9-a14d-e21d3d10ef00"
+    },
+    {
+      "parameters": {
+        "path": "enrichment-v2",
+        "options": {}
+      },
+      "name": "Webhook Trigger1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1440,
+        -128
+      ],
+      "webhookId": "abc123-enrichment-v2",
+      "id": "68221e45-4640-4d46-86d8-2e8119ee2cb9"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "options": {}
+      },
+      "name": "Fetch Clinic Details from Supabase1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -1232,
+        -128
+      ],
+      "id": "94793cab-0cb3-4533-b9a9-ab5ba2137222",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "xZGRc1khUfsbTXQ1",
+          "name": "Header Auth account"
+        },
+        "httpCustomAuth": {
+          "id": "BSTshGqptOkc5u7r",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract consultant status for email template routing\nconst clinic = $json[0];\n\nreturn {\n  json: {\n    ...clinic,\n    // Flag for template selection\n    email_template_type: clinic.is_consultant ? 'consultant' : 'direct',\n    // Determine addressee\n    addressee_name: clinic.contact_name || clinic.mail_contact_name,\n    addressee_email: clinic.contact_email || clinic.mail_contact_email,\n    addressee_company: clinic.is_consultant ? (clinic.consultant_company || clinic.mail_contact_company) : clinic.clinic_name\n  }\n};"
+      },
+      "name": "Determine Contact Type1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        -128
+      ],
+      "id": "5681c583-6166-4a2d-b5bb-331cf62057a5"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/customsearch/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {}
+      },
+      "name": "Google Search - Find Professional Profile1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -848,
+        -128
+      ],
+      "id": "a13fa299-6889-49ae-9449-b4d1bc8ef1c2",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's response into subject and body\nconst response = $json.response || $json.output || '';\nconst clinic = $input.first().json;\n\nlet subject = '';\nlet body = '';\n\n// Parse format: Subject: ... \\n\\nBody: ...\nconst subjectMatch = response.match(/Subject:\\s*(.+?)\\n/i);\nif (subjectMatch) {\n  subject = subjectMatch[1].trim();\n}\n\nconst bodyMatch = response.match(/Body:\\s*([\\s\\S]+)$/i);\nif (bodyMatch) {\n  body = bodyMatch[1].trim();\n} else {\n  // Fallback: everything after first blank line\n  const parts = response.split('\\n\\n');\n  if (parts.length > 1) {\n    body = parts.slice(1).join('\\n\\n').trim();\n  } else {\n    body = response.trim();\n  }\n}\n\n// Add signature\nbody += `\\n\\n---\\nCharger Access\\nUSAC RHC Service Provider\\nwww.chargeraccess.com`;\n\nreturn {\n  json: {\n    ...clinic,\n    email_subject: subject || `USAC RHC Services - ${clinic.clinic_name}`,\n    email_body: body,\n    email_generated_at: new Date().toISOString()\n  }\n};"
+      },
+      "name": "Parse Email Content1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -128
+      ],
+      "id": "7a80a6c4-bad9-4a65-82a6-1e2746b1c061"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{$json.email_subject}}",
+        "bodyContent": "={{$json.email_body}}",
+        "additionalFields": {
+          "importance": "normal",
+          "toRecipients": "={{$json.addressee_email}}"
+        }
+      },
+      "name": "Outlook - Create Draft in USAC Folder1",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        160,
+        -128
+      ],
+      "id": "024e785a-e0b3-4491-88d2-657f613deeb6",
+      "webhookId": "2ea17a25-6de1-4f1f-8177-dc00e24e4deb"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/clinics_pending_review?id=eq.{{$json.id}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "application/json",
+        "options": {}
+      },
+      "name": "Update Supabase - Mark as Enriched1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        368,
+        -128
+      ],
+      "id": "4ee7ed45-5099-45c3-b70d-0c6e380fc652"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Respond to Webhook1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        656,
+        -272
+      ],
+      "id": "342ce42a-dc5d-45e4-beca-e2d5327b10d8"
+    },
+    {
+      "parameters": {
+        "url": "https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "name": "Check if Already Exists",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -816,
+        -352
+      ],
+      "id": "c99a5d7b-37f9-4d79-9fa8-44251dbcdbc6",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "xZGRc1khUfsbTXQ1",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.length}}",
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "name": "IF: Is New Filing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -352
+      ],
+      "id": "8556be08-3e08-4452-8f16-640ef6d4029d"
+    },
+    {
+      "parameters": {},
+      "name": "Already Exists - Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        -336
+      ],
+      "id": "a1e9ac69-fc78-487c-8fe2-ca3c7f8da807"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger - Daily 7 AM1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1408,
+        -512
+      ],
+      "id": "32805313-436d-48d9-b64f-fbe6eb682205"
+    },
+    {
+      "parameters": {
+        "url": "https://opendata.usac.org/resource/96rf-xd57.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "program",
+              "value": "Telecom"
+            },
+            {
+              "name": "=$where",
+              "value": "=posting_start_date>='{{$now.minus(1, 'day').toFormat('yyyy-MM-dd')}}'"
+            },
+            {
+              "name": "$limit",
+              "value": "1000"
+            },
+            {
+              "name": "$order",
+              "value": "posting_start_date DESC"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Fetch Form 465 Filings (USAC API)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -1152,
+        -512
+      ],
+      "id": "3523edca-c19a-4d94-a4b0-6bf7abb619c6"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process USAC API response and extract all fields\nconst filings = $input.all();\nconst processedFilings = [];\n\nfor (const filing of filings) {\n  const data = filing.json;\n  \n  // Extract contact information\n  const contactEmail = data.contact_email_address || '';\n  const mailContactEmail = data.mail_contact_email || '';\n  const contactDomain = contactEmail.split('@')[1] || '';\n  const mailDomain = mailContactEmail.split('@')[1] || '';\n  \n  // Consultant detection logic\n  const isConsultant = contactDomain !== mailDomain && mailDomain !== '';\n  \n  // Generate deduplication hash\n  const crypto = require('crypto');\n  const hashString = `${data.hcp_number}-${data.posting_date}-${data.site_name}-${data.site_address}`;\n  const hash = crypto.createHash('sha256').update(hashString).digest('hex');\n  \n  // Build processed filing object with all Phase 2 fields\n  const processed = {\n    // Core identifiers\n    hcp_number: data.hcp_number || data.health_care_provider_number,\n    application_number: data.application_number || data.form_465_application_number,\n    form_465_hash: hash,\n    \n    // Clinic information\n    clinic_name: data.site_name || data.health_care_provider_name,\n    address: data.site_address || data.service_delivery_site_physical_address,\n    city: data.site_city || data.service_delivery_site_city,\n    state: data.site_state || data.service_delivery_site_state,\n    zip: data.site_zip || data.service_delivery_site_zip_code,\n    \n    // Contact information\n    contact_name: data.contact_person_name || data.contact_name,\n    contact_title: data.contact_person_title || data.contact_title,\n    contact_email: contactEmail,\n    contact_phone: data.contact_phone_number || data.contact_telephone_number,\n    \n    // Mail contact (potentially consultant)\n    mail_contact_name: data.mail_contact_name || data.mailing_contact_name,\n    mail_contact_email: mailContactEmail,\n    mail_contact_company: data.mail_contact_company || data.mailing_contact_company,\n    \n    // Consultant detection\n    is_consultant: isConsultant,\n    consultant_company: isConsultant ? (data.mail_contact_company || data.mailing_contact_company) : null,\n    consultant_email_domain: isConsultant ? mailDomain : null,\n    consultant_detection_method: isConsultant ? 'auto_domain' : null,\n    \n    // Dates\n    posting_date: data.posting_date,\n    filing_date: data.form_465_date_certified || data.posting_date,\n    allowable_contract_start_date: data.allowable_contract_date,\n    \n    // Program information\n    program_type: 'Telecom',\n    service_type: data.service_type || data.type_of_service,\n    description_of_services: data.narrative_description || data.description,\n    \n    // Contract details\n    contract_length: data.contract_term_months || null,\n    bandwidth: data.bandwidth_mbps || null,\n    \n    // PDF URL\n    form_465_pdf_url: data.application_number ? `https://rhc.usac.org/rhc/public/viewPdf.seam?documentId=${data.application_number}` : null,\n    \n    // Status\n    processed: false,\n    created_at: new Date().toISOString()\n  };\n  \n  processedFilings.push({ json: processed });\n}\n\nreturn processedFilings;"
+      },
+      "name": "Process & Extract All Fields1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -912,
+        -512
+      ],
+      "id": "330397b1-c043-48a8-b031-558be4556a5e"
+    },
+    {
+      "parameters": {
+        "url": "https://opendata.usac.org/resource/2kme-evqq.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$where",
+              "value": "=filing_hcp='{{$json.hcp_number}}' AND funding_year IN ('2023','2024','2025')"
+            },
+            {
+              "name": "$select",
+              "value": "funding_year,original_requested_amount"
+            },
+            {
+              "name": "$order",
+              "value": "funding_year DESC"
+            },
+            {
+              "name": "$limit",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Query Historical Funding (3 Years)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -448,
+        -640
+      ],
+      "id": "5c2dc050-aaeb-48ec-8542-087918cdfb5d",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge historical funding data with filing\nconst filing = $input.first().json;\nconst historicalData = $input.all().slice(1);\n\n// Extract up to 3 years of funding\nif (historicalData.length > 0) {\n  historicalData.forEach((record, index) => {\n    const data = record.json;\n    if (index < 3) {\n      filing[`funding_year_${index + 1}`] = parseInt(data.funding_year) || null;\n      filing[`funding_amount_${index + 1}`] = parseFloat(data.total_approved_one_time_cost) || 0;\n    }\n  });\n  \n  // Calculate total 3-year funding\n  const totalFunding = (filing.funding_amount_1 || 0) + \n                       (filing.funding_amount_2 || 0) + \n                       (filing.funding_amount_3 || 0);\n  \n  // Calculate priority score\n  // Base score on funding history (0-100)\n  let priorityScore = 0;\n  \n  // Funding amount (40 points max)\n  if (totalFunding > 1000000) priorityScore += 40;\n  else if (totalFunding > 500000) priorityScore += 30;\n  else if (totalFunding > 100000) priorityScore += 20;\n  else if (totalFunding > 0) priorityScore += 10;\n  \n  // Consistency (30 points) - participated multiple years\n  const yearsWithFunding = [filing.funding_amount_1, filing.funding_amount_2, filing.funding_amount_3]\n    .filter(amt => amt > 0).length;\n  priorityScore += yearsWithFunding * 10;\n  \n  // Consultant factor (30 points) - consultants often mean larger projects\n  if (filing.is_consultant) {\n    priorityScore += 30;\n  } else {\n    priorityScore += 15; // Direct contacts still valuable\n  }\n  \n  filing.priority_score = Math.min(priorityScore, 100);\n  \n  // Assign priority label\n  if (filing.priority_score >= 70) filing.priority_label = 'High';\n  else if (filing.priority_score >= 40) filing.priority_label = 'Medium';\n  else filing.priority_label = 'Low';\n  \n  filing.total_funding_3y = totalFunding;\n} else {\n  // No historical data - assign low priority\n  filing.priority_score = 25;\n  filing.priority_label = 'Low';\n  filing.total_funding_3y = 0;\n}\n\nreturn { json: filing };"
+      },
+      "name": "Calculate Priority & Merge Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        -640
+      ],
+      "id": "c3c83619-d5e3-4219-a6a7-cbe7008099b4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/clinics_pending_review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "Insert into Supabase1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        96,
+        -608
+      ],
+      "id": "39bf609c-cc40-4ba5-977e-99c29972a21a",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "xZGRc1khUfsbTXQ1",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log workflow completion\nconst totalProcessed = $input.all().length;\nconsole.log(`USAC RHC Workflow V2 Complete: ${totalProcessed} new filings processed`);\n\nreturn [{\n  json: {\n    status: 'success',\n    processed: totalProcessed,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "name": "Log Completion1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        288,
+        -608
+      ],
+      "id": "9e7aa7ec-fc3a-475e-b22b-bd05fe632c3f"
+    }
+  ],
+  "connections": {
+    "Fetch Form 465 Filings (USAC API)": {
+      "main": [
+        [
+          {
+            "node": "Process & Extract All Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Extract All Fields": {
+      "main": [
+        []
+      ]
+    },
+    "Query Historical Funding (3 Years)": {
+      "main": [
+        []
+      ]
+    },
+    "Calculate Priority & Merge Data": {
+      "main": [
+        []
+      ]
+    },
+    "Insert into Supabase": {
+      "main": [
+        []
+      ]
+    },
+    "Schedule Trigger - Weekly Monday 9 AM": {
+      "main": [
+        [
+          {
+            "node": "Scrape USAC News Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape USAC News Page": {
+      "main": [
+        [
+          {
+            "node": "Parse Latest News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Latest News": {
+      "main": [
+        [
+          {
+            "node": "Get Last Known Update from Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Known Update from Supabase": {
+      "main": [
+        [
+          {
+            "node": "Compare with Last Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare with Last Update": {
+      "main": [
+        [
+          {
+            "node": "IF: New Update Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: New Update Found?": {
+      "main": [
+        [
+          {
+            "node": "Insert Alert into Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No New Updates - End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Clinic Details from Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Clinic Details from Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Determine Contact Type1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Contact Type1": {
+      "main": [
+        [
+          {
+            "node": "Google Search - Find Professional Profile1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Search - Find Professional Profile1": {
+      "main": [
+        [
+          {
+            "node": "Extract Enrichment Findings (Text Only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Content1": {
+      "main": [
+        [
+          {
+            "node": "Outlook - Create Draft in USAC Folder1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outlook - Create Draft in USAC Folder1": {
+      "main": [
+        [
+          {
+            "node": "Update Supabase - Mark as Enriched1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Supabase - Mark as Enriched1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Enrichment Findings (Text Only)": {
+      "main": [
+        []
+      ]
+    },
+    "Check if Already Exists": {
+      "main": [
+        []
+      ]
+    },
+    "IF: Is New Filing?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Already Exists - Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger - Daily 7 AM1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Form 465 Filings (USAC API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Form 465 Filings (USAC API)1": {
+      "main": [
+        []
+      ]
+    },
+    "Process & Extract All Fields1": {
+      "main": [
+        [
+          {
+            "node": "Insert into Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Historical Funding (3 Years)1": {
+      "main": [
+        [
+          {
+            "node": "Calculate Priority & Merge Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Priority & Merge Data1": {
+      "main": [
+        []
+      ]
+    },
+    "Insert into Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Log Completion1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "Fetch Form 465 Filings (USAC API)": [
+      {
+        "json": {
+          "program": "Telecom",
+          "application_number": "RHC46500001741",
+          "funding_year": "2026",
+          "hcp_number": "50472",
+          "hcp_name": "Honesdale Family Health Center",
+          "status": "Processed - Approved",
+          "applicant_type": "INDIVIDUAL",
+          "site_address_line_1": "600 MAPLE AVE",
+          "site_city": "HONESDALE",
+          "site_county": "Wayne",
+          "site_state": "PA",
+          "site_zip_code": "18431-1459",
+          "posting_start_date": "2025-11-06",
+          "allowable_contract_start_date": "2025-12-05",
+          "posting_end_date": "2025-12-04",
+          "number_of_days_posted": "28",
+          "expected_bid_evaluation_period": "5",
+          "requested_contract_period": "5",
+          "request_for_services": "Voice",
+          "rfp_submitted": "0",
+          "link_to_fcc_form_pdf": "http://publicdata.usac.org/RHC/Prd/2026/Form465/891459837/RHC46500001741/Generated Documents/RHC46500001741 20251106_093240_Processed Form 465.pdf",
+          "mail_contact_first_name": "Whittney",
+          "mail_contact_last_name": "Walker",
+          "mail_contact_organization_name": "Community Hospital Corporation",
+          "mail_contact_phone": "(972) 943-1226",
+          "mail_contact_email": "wwalker@communityhospitalcorp.com",
+          "mail_address_line_1": "7950 Legacy Dr",
+          "mail_address_line_2": "Suite 1000",
+          "mail_city": "Plano",
+          "mail_state": "TX",
+          "mail_zip": "75024",
+          "hcp_fcc_registration_number": "0015305832",
+          "description_of_services_requested": "-Leased/Tariffed Facilities or Services, Network Equipment and Installation\n-For Service Providers submitting a bid for individual telephone lines, please provide pricing for 1 - 50 telephone lines."
+        }
+      },
+      {
+        "json": {
+          "program": "Telecom",
+          "application_number": "RHC46500001746",
+          "funding_year": "2026",
+          "hcp_number": "114200",
+          "hcp_name": "PCHD - Therapy Services",
+          "status": "Processed - Approved",
+          "applicant_type": "INDIVIDUAL",
+          "site_address_line_1": "488 HIGHLAND ST",
+          "site_city": "AMERICAN FALLS",
+          "site_county": "Power",
+          "site_state": "ID",
+          "site_zip_code": "83211-1318",
+          "posting_start_date": "2025-11-06",
+          "allowable_contract_start_date": "2025-12-05",
+          "posting_end_date": "2025-12-04",
+          "number_of_days_posted": "28",
+          "expected_bid_evaluation_period": "5",
+          "requested_contract_period": "5",
+          "request_for_services": "Voice",
+          "rfp_submitted": "0",
+          "link_to_fcc_form_pdf": "http://publicdata.usac.org/RHC/Prd/2026/Form465/891556360/RHC46500001746/Generated Documents/RHC46500001746 20251106_093247_Processed Form 465.pdf",
+          "mail_contact_first_name": "Whittney",
+          "mail_contact_last_name": "Walker",
+          "mail_contact_organization_name": "Community Hospital Corporation",
+          "mail_contact_phone": "(972) 943-1226",
+          "mail_contact_email": "wwalker@communityhospitalcorp.com",
+          "mail_address_line_1": "7950 Legacy Dr",
+          "mail_address_line_2": "Suite 1000",
+          "mail_city": "Plano",
+          "mail_state": "TX",
+          "mail_zip": "75024",
+          "hcp_fcc_registration_number": "0004537775",
+          "description_of_services_requested": "-Leased/Tariffed Facilities or Services, Network Equipment and Installation\n-For Service Providers submitting a bid for individual telephone lines, please provide pricing for 1 - 50 telephone lines."
+        }
+      }
+    ],
+    "Process & Extract All Fields": [
+      {
+        "json": {
+          "hcp_number": "50472",
+          "application_number": "RHC46500001741",
+          "form_465_hash": "fbadbba98e6a653f1550c297d38b62af1d55c6c4d41578b393f7d710f79b944d",
+          "city": "HONESDALE",
+          "state": "PA",
+          "contact_email": "",
+          "mail_contact_email": "wwalker@communityhospitalcorp.com",
+          "is_consultant": true,
+          "consultant_email_domain": "communityhospitalcorp.com",
+          "consultant_detection_method": "auto_domain",
+          "program_type": "Telecom",
+          "contract_length": null,
+          "bandwidth": null,
+          "form_465_pdf_url": "https://rhc.usac.org/rhc/public/viewPdf.seam?documentId=RHC46500001741",
+          "processed": false,
+          "created_at": "2025-11-07T16:52:32.966Z"
+        }
+      },
+      {
+        "json": {
+          "hcp_number": "114200",
+          "application_number": "RHC46500001746",
+          "form_465_hash": "2dd38aa6c3cb20973312f99a83fcf740dfe23e58ff8778149f4cfeff945a6fd0",
+          "city": "AMERICAN FALLS",
+          "state": "ID",
+          "contact_email": "",
+          "mail_contact_email": "wwalker@communityhospitalcorp.com",
+          "is_consultant": true,
+          "consultant_email_domain": "communityhospitalcorp.com",
+          "consultant_detection_method": "auto_domain",
+          "program_type": "Telecom",
+          "contract_length": null,
+          "bandwidth": null,
+          "form_465_pdf_url": "https://rhc.usac.org/rhc/public/viewPdf.seam?documentId=RHC46500001746",
+          "processed": false,
+          "created_at": "2025-11-07T16:52:32.966Z"
+        }
+      }
+    ],
+    "Query Historical Funding (3 Years)": [
+      {
+        "json": {
+          "funding_year": "2025",
+          "original_requested_amount": "1102.08"
+        }
+      },
+      {
+        "json": {
+          "funding_year": "2024",
+          "original_requested_amount": "1016.88"
+        }
+      },
+      {
+        "json": {
+          "funding_year": "2023",
+          "original_requested_amount": "469.44"
+        }
+      }
+    ],
+    "Process & Extract All Fields1": [
+      {
+        "json": {
+          "hcp_number": "50472",
+          "application_number": "RHC46500001741",
+          "form_465_hash": "fbadbba98e6a653f1550c297d38b62af1d55c6c4d41578b393f7d710f79b944d",
+          "city": "HONESDALE",
+          "state": "PA",
+          "contact_email": "",
+          "mail_contact_email": "wwalker@communityhospitalcorp.com",
+          "is_consultant": true,
+          "consultant_email_domain": "communityhospitalcorp.com",
+          "consultant_detection_method": "auto_domain",
+          "program_type": "Telecom",
+          "contract_length": null,
+          "bandwidth": null,
+          "form_465_pdf_url": "https://rhc.usac.org/rhc/public/viewPdf.seam?documentId=RHC46500001741",
+          "processed": false,
+          "created_at": "2025-11-09T00:12:45.015Z"
+        }
+      },
+      {
+        "json": {
+          "hcp_number": "114200",
+          "application_number": "RHC46500001746",
+          "form_465_hash": "2dd38aa6c3cb20973312f99a83fcf740dfe23e58ff8778149f4cfeff945a6fd0",
+          "city": "AMERICAN FALLS",
+          "state": "ID",
+          "contact_email": "",
+          "mail_contact_email": "wwalker@communityhospitalcorp.com",
+          "is_consultant": true,
+          "consultant_email_domain": "communityhospitalcorp.com",
+          "consultant_detection_method": "auto_domain",
+          "program_type": "Telecom",
+          "contract_length": null,
+          "bandwidth": null,
+          "form_465_pdf_url": "https://rhc.usac.org/rhc/public/viewPdf.seam?documentId=RHC46500001746",
+          "processed": false,
+          "created_at": "2025-11-09T00:12:45.015Z"
+        }
+      }
+    ]
+  },
+  "versionId": "19865374-c0dc-4c8f-a75a-209e91ce25a2",
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2025-11-07T11:47:38.295Z",
+      "createdAt": "2025-11-07T11:47:38.295Z",
+      "role": "workflow:owner",
+      "workflowId": "6Pv9uvzKec5xInWS",
+      "projectId": "XVQn9Ym2tTU6jsfQ",
+      "project": {
+        "updatedAt": "2025-10-29T18:23:05.974Z",
+        "createdAt": "2025-10-29T18:23:01.982Z",
+        "id": "XVQn9Ym2tTU6jsfQ",
+        "name": "Mike Hyams <mikehyamsjr@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "projectRelations": [
+          {
+            "updatedAt": "2025-10-29T18:23:01.982Z",
+            "createdAt": "2025-10-29T18:23:01.982Z",
+            "userId": "dd7bf789-7148-4126-8312-6e599c81d74e",
+            "projectId": "XVQn9Ym2tTU6jsfQ",
+            "user": {
+              "updatedAt": "2025-11-08T06:00:34.000Z",
+              "createdAt": "2025-10-29T18:23:00.507Z",
+              "id": "dd7bf789-7148-4126-8312-6e599c81d74e",
+              "email": "mikehyamsjr@gmail.com",
+              "firstName": "Mike",
+              "lastName": "Hyams",
+              "personalizationAnswers": null,
+              "settings": {
+                "userActivated": false,
+                "easyAIWorkflowOnboarded": true,
+                "userClaimedAiCredits": true
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2025-11-08",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-11-07T11:47:01.249Z",
+      "createdAt": "2025-11-07T11:47:01.249Z",
+      "id": "HEeHVpvc7jfL4qgo",
+      "name": "USAC"
+    },
+    {
+      "updatedAt": "2025-11-07T11:47:01.297Z",
+      "createdAt": "2025-11-07T11:47:01.297Z",
+      "id": "Uhtjs1JuczFPhJnY",
+      "name": "Phase 2"
+    },
+    {
+      "updatedAt": "2025-11-07T11:47:14.861Z",
+      "createdAt": "2025-11-07T11:47:14.861Z",
+      "id": "fL2TrW8ab1ggzv5C",
+      "name": "Enrichment"
+    }
+  ]
+}

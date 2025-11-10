@@ -3,24 +3,118 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { FundingHistory } from './FundingHistory'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import type { Database, HistoricalFundingItem } from '@/types/database.types'
-import { MapPin, Calendar, DollarSign, FileText, Mail, Phone, User, Building2 } from 'lucide-react'
+import { MapPin, Calendar, DollarSign, FileText, Mail, Phone, User, Building2, Send, Tag, CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
 
 type Clinic = Database['public']['Tables']['clinics_pending_review']['Row']
 
 interface ClinicCardProps {
   clinic: Clinic
+  onUpdate?: () => void
 }
 
-export function ClinicCard({ clinic }: ClinicCardProps) {
+export function ClinicCard({ clinic, onUpdate }: ClinicCardProps) {
   const [showFunding, setShowFunding] = useState(false)
   const [showContacts, setShowContacts] = useState(false)
+  const [isStartingOutreach, setIsStartingOutreach] = useState(false)
+  const [isTogglingPrimaryConsultant, setIsTogglingPrimaryConsultant] = useState(false)
+  const [isTogglingMailConsultant, setIsTogglingMailConsultant] = useState(false)
 
   // Parse historical funding JSONB
   const historicalFunding = clinic.historical_funding as HistoricalFundingItem[] | null
+
+  // Determine if outreach is already started
+  const outreachStarted = clinic.outreach_status !== 'pending'
+
+  // Handle Start Outreach
+  const handleStartOutreach = async () => {
+    setIsStartingOutreach(true)
+    try {
+      const response = await fetch(`/api/clinics/${clinic.id}/start-outreach`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to start outreach')
+      }
+
+      const result = await response.json()
+      console.log('Outreach started:', result)
+
+      // Call onUpdate callback to refresh the clinic list
+      if (onUpdate) {
+        onUpdate()
+      }
+    } catch (error) {
+      console.error('Error starting outreach:', error)
+      alert('Failed to start outreach. Please try again.')
+    } finally {
+      setIsStartingOutreach(false)
+    }
+  }
+
+  // Handle Toggle Primary Contact Consultant
+  const handleTogglePrimaryConsultant = async () => {
+    setIsTogglingPrimaryConsultant(true)
+    try {
+      const response = await fetch(`/api/clinics/${clinic.id}/tag-primary-consultant`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle consultant tag')
+      }
+
+      const result = await response.json()
+      console.log('Primary consultant toggled:', result)
+
+      if (onUpdate) {
+        onUpdate()
+      }
+    } catch (error) {
+      console.error('Error toggling primary consultant:', error)
+      alert('Failed to update consultant tag. Please try again.')
+    } finally {
+      setIsTogglingPrimaryConsultant(false)
+    }
+  }
+
+  // Handle Toggle Mail Contact Consultant
+  const handleToggleMailConsultant = async () => {
+    setIsTogglingMailConsultant(true)
+    try {
+      const response = await fetch(`/api/clinics/${clinic.id}/tag-mail-consultant`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle consultant tag')
+      }
+
+      const result = await response.json()
+      console.log('Mail consultant toggled:', result)
+
+      if (onUpdate) {
+        onUpdate()
+      }
+    } catch (error) {
+      console.error('Error toggling mail consultant:', error)
+      alert('Failed to update consultant tag. Please try again.')
+    } finally {
+      setIsTogglingMailConsultant(false)
+    }
+  }
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
@@ -43,17 +137,46 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
                 FY {clinic.funding_year}
               </Badge>
             )}
-            {clinic.application_type && (
-              <Badge variant="outline" className="bg-purple-50">
-                {clinic.application_type}
-              </Badge>
-            )}
             {clinic.processed && (
               <Badge variant="default" className="bg-green-600">
                 Processed
               </Badge>
             )}
+            {outreachStarted && (
+              <Badge variant="default" className="bg-orange-600">
+                <Send className="h-3 w-3 mr-1" />
+                {clinic.outreach_status === 'ready_for_outreach' && 'Ready'}
+                {clinic.outreach_status === 'outreach_sent' && 'Sent'}
+                {clinic.outreach_status === 'follow_up' && 'Follow-up'}
+                {clinic.outreach_status === 'completed' && 'Complete'}
+              </Badge>
+            )}
           </div>
+        </div>
+
+        {/* Start Outreach Button - Prominent in header */}
+        <div className="mt-3">
+          <Button
+            onClick={handleStartOutreach}
+            disabled={outreachStarted || isStartingOutreach}
+            className="w-full"
+            variant={outreachStarted ? 'outline' : 'default'}
+            size="sm"
+          >
+            {isStartingOutreach ? (
+              <>Loading...</>
+            ) : outreachStarted ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Outreach Started
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Start Outreach
+              </>
+            )}
+          </Button>
         </div>
       </CardHeader>
 
@@ -97,12 +220,27 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
           </div>
         )}
 
-        {/* Service Type */}
+        {/* Service Type - Now with Modal */}
         {clinic.service_type && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="h-4 w-4" />
-            <span className="line-clamp-2">{clinic.service_type}</span>
-          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                <Building2 className="h-4 w-4 mr-2" />
+                View Requested Services
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Requested Services</DialogTitle>
+                <DialogDescription>
+                  Service details from Form 465 for {clinic.clinic_name}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-4 whitespace-pre-wrap text-sm">
+                {clinic.service_type}
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
 
         {/* Historical Funding */}
@@ -145,7 +283,15 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
                 {/* Primary Contact */}
                 {(clinic.contact_email || clinic.contact_phone) && (
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-gray-600 mb-2">Primary Contact</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-gray-600">Primary Contact</p>
+                      {clinic.contact_is_consultant && (
+                        <Badge variant="default" className="bg-purple-600 text-xs">
+                          <Tag className="h-3 w-3 mr-1" />
+                          Consultant
+                        </Badge>
+                      )}
+                    </div>
                     {clinic.contact_email && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                         <Mail className="h-3 w-3" />
@@ -155,20 +301,42 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
                       </div>
                     )}
                     {clinic.contact_phone && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                         <Phone className="h-3 w-3" />
                         <a href={`tel:${clinic.contact_phone}`} className="hover:underline">
                           {clinic.contact_phone}
                         </a>
                       </div>
                     )}
+                    <Button
+                      variant={clinic.contact_is_consultant ? 'outline' : 'default'}
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={handleTogglePrimaryConsultant}
+                      disabled={isTogglingPrimaryConsultant}
+                    >
+                      <Tag className="h-3 w-3 mr-2" />
+                      {isTogglingPrimaryConsultant
+                        ? 'Updating...'
+                        : clinic.contact_is_consultant
+                        ? 'Remove Consultant Tag'
+                        : 'Tag as Consultant'}
+                    </Button>
                   </div>
                 )}
 
                 {/* Mail Contact */}
                 {(clinic.mail_contact_first_name || clinic.mail_contact_email || clinic.mail_contact_phone) && (
                   <div className="bg-blue-50 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-blue-600 mb-2">Mailing Contact</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-blue-600">Mailing Contact</p>
+                      {clinic.mail_contact_is_consultant && (
+                        <Badge variant="default" className="bg-purple-600 text-xs">
+                          <Tag className="h-3 w-3 mr-1" />
+                          Consultant
+                        </Badge>
+                      )}
+                    </div>
                     {(clinic.mail_contact_first_name || clinic.mail_contact_last_name) && (
                       <p className="text-sm font-medium text-gray-900 mb-1">
                         {clinic.mail_contact_first_name} {clinic.mail_contact_last_name}
@@ -188,13 +356,27 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
                       </div>
                     )}
                     {clinic.mail_contact_phone && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                         <Phone className="h-3 w-3" />
                         <a href={`tel:${clinic.mail_contact_phone}`} className="hover:underline">
                           {clinic.mail_contact_phone}
                         </a>
                       </div>
                     )}
+                    <Button
+                      variant={clinic.mail_contact_is_consultant ? 'outline' : 'default'}
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={handleToggleMailConsultant}
+                      disabled={isTogglingMailConsultant}
+                    >
+                      <Tag className="h-3 w-3 mr-2" />
+                      {isTogglingMailConsultant
+                        ? 'Updating...'
+                        : clinic.mail_contact_is_consultant
+                        ? 'Remove Consultant Tag'
+                        : 'Tag as Consultant'}
+                    </Button>
                   </div>
                 )}
               </div>

@@ -1,0 +1,325 @@
+{
+  "name": "Phase 1: USAC Data Pull and Enrichment",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger - Daily 7 AM CST",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Runs every day at 7:00 AM CST to pull new Form 465 filings"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://opendata.usac.org/resource/96rf-xd57.json",
+        "authentication": "none",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "program",
+              "value": "Telecom"
+            },
+            {
+              "name": "$where",
+              "value": "posting_date >= '{{ $now.minus({ days: 1 }).toFormat(\"yyyy-MM-dd\") }}'"
+            },
+            {
+              "name": "$limit",
+              "value": "1000"
+            },
+            {
+              "name": "$order",
+              "value": "posting_date DESC"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-get-usac-filings",
+      "name": "GET Form 465 Filings from USAC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Retrieves Form 465 filings posted in the last 24 hours from USAC Open Data API"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract and transform USAC filing data into Supabase-compatible format\nconst items = $input.all();\nconst transformedItems = [];\n\n// Helper function to collect document links from RFP1-10 and AdditionalDoc1-10\nfunction collectDocumentLinks(item) {\n  const rfpLinks = [];\n  const additionalDocs = [];\n  \n  // Collect RFP documents (RFP1 through RFP10)\n  for (let i = 1; i <= 10; i++) {\n    const rfpField = `rfp${i}`;\n    if (item[rfpField] && item[rfpField].trim() !== '') {\n      rfpLinks.push(item[rfpField].trim());\n    }\n  }\n  \n  // Collect Additional documents (AdditionalDoc1 through AdditionalDoc10)\n  for (let i = 1; i <= 10; i++) {\n    const docField = `additionaldoc${i}`;\n    if (item[docField] && item[docField].trim() !== '') {\n      additionalDocs.push(item[docField].trim());\n    }\n  }\n  \n  return {\n    rfp_links: rfpLinks,\n    additional_docs: additionalDocs\n  };\n}\n\n// Transform each filing\nfor (const item of items) {\n  const json = item.json;\n  \n  // Skip if missing critical fields\n  if (!json.hcpnumber || !json.hcpname || !json.healthcaresite_state) {\n    continue;\n  }\n  \n  // Collect document links\n  const documentLinks = collectDocumentLinks(json);\n  \n  // Create deduplication hash\n  const hashString = `${json.hcpnumber}-${json.posting_date || ''}-${json.healthcaresite_addressline1 || ''}`;\n  const form465Hash = hashString.replace(/\\s+/g, '_').toLowerCase();\n  \n  // Transform to match Supabase schema\n  const transformed = {\n    // Core identification\n    hcp_number: json.hcpnumber || '',\n    clinic_name: json.hcpname || '',\n    application_number: json.applicationnumber || '',\n    funding_year: json.funding_year || json.fundingyear || '',\n    application_type: json.application_type || json.applicationtype || '',\n    \n    // Address fields\n    address: json.healthcaresite_addressline1 || '',\n    city: json.healthcaresite_city || '',\n    state: json.healthcaresite_state || '',\n    zip: json.healthcaresite_zipcode || json.site_zip_code || '',\n    \n    // Filing information\n    filing_date: json.posting_date || new Date().toISOString(),\n    form_465_hash: form465Hash,\n    form_465_pdf_url: json.linktofccformpdf || json.link_to_pdf || '',\n    \n    // Service details\n    service_type: json.descriptionofservicesrequested || json.service_type || '',\n    contract_length: json.requestedcontractperiod ? parseInt(json.requestedcontractperiod) : null,\n    allowable_contract_start_date: json.allowablecontractstartdate || null,\n    bandwidth: json.bandwidth || '',\n    \n    // Primary contact information\n    contact_name: json.contact_firstname && json.contact_lastname \n      ? `${json.contact_firstname} ${json.contact_lastname}`.trim()\n      : json.contact_name || '',\n    contact_email: json.contact_email || '',\n    contact_phone: json.contact_phonenumber || json.contact_phone || '',\n    \n    // Mail contact information\n    mail_contact_first_name: json.mailcontact_firstname || '',\n    mail_contact_last_name: json.mailcontact_lastname || '',\n    mail_contact_org_name: json.mailcontact_orgname || '',\n    mail_contact_phone: json.mailcontact_phone || '',\n    mail_contact_email: json.mailcontact_email || '',\n    \n    // Document links as JSONB\n    additional_documents: documentLinks,\n    \n    // Processing status defaults\n    processed: false\n  };\n  \n  transformedItems.push({ json: transformed });\n}\n\nconsole.log(`Transformed ${transformedItems.length} filings from ${items.length} input items`);\n\nreturn transformedItems;"
+      },
+      "id": "function-transform-data",
+      "name": "Extract and Transform Filing Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Normalizes USAC data fields to match Supabase schema and combines document links into JSONB format"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-over-clinics",
+      "name": "Loop Over Each Clinic",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        900,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Process each clinic individually for historical funding enrichment"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://opendata.usac.org/resource/2kme-evqq.json",
+        "authentication": "none",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$where",
+              "value": "=filing_hcp='{{ $json.hcp_number }}' AND funding_year IN ('2023','2024','2025')"
+            },
+            {
+              "name": "$select",
+              "value": "funding_year,original_requested_amount"
+            },
+            {
+              "name": "$order",
+              "value": "funding_year DESC"
+            },
+            {
+              "name": "$limit",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "json",
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "http-get-historical-funding",
+      "name": "GET Historical Funding Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Retrieves 3-year historical funding data (2023-2025) from USAC endpoint 2kme-evqq"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Merge historical funding data with clinic record\nconst clinicData = $('Loop Over Each Clinic').item.json;\nconst historicalData = $input.all();\n\n// Collect historical funding data into JSONB array\nconst historicalFunding = [];\nfor (const item of historicalData) {\n  const json = item.json;\n  if (json.funding_year && json.original_requested_amount) {\n    historicalFunding.push({\n      year: json.funding_year,\n      amount: parseFloat(json.original_requested_amount) || 0\n    });\n  }\n}\n\n// Merge with clinic data\nconst enrichedRecord = {\n  ...clinicData,\n  historical_funding: historicalFunding\n};\n\nconsole.log(`Enriched ${clinicData.hcp_number} with ${historicalFunding.length} historical funding records`);\n\nreturn [{ json: enrichedRecord }];"
+      },
+      "id": "function-merge-historical",
+      "name": "Merge Historical Funding",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Collects historical funding into JSONB array and merges with clinic record"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "clinics_pending_review",
+        "options": {
+          "onConflict": "form_465_hash"
+        }
+      },
+      "id": "supabase-insert",
+      "name": "Insert into Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Inserts enriched clinic record into clinics_pending_review table (skip duplicates based on form_465_hash)"
+    },
+    {
+      "parameters": {},
+      "id": "loop-back",
+      "name": "Loop Back",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        300
+      ],
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log workflow completion and summary statistics\nconst allItems = $input.all();\nconst successCount = allItems.length;\n\nconst timestamp = new Date().toISOString();\nconst summary = {\n  workflow: 'Phase 1: USAC Data Pull and Enrichment',\n  timestamp: timestamp,\n  filings_processed: successCount,\n  status: 'completed',\n  message: `Successfully processed ${successCount} Form 465 filings and inserted into Supabase`\n};\n\nconsole.log('=== WORKFLOW COMPLETION ===');\nconsole.log(JSON.stringify(summary, null, 2));\nconsole.log('==========================');\n\n// Return summary for potential webhook/notification\nreturn [{ json: summary }];"
+      },
+      "id": "function-log-completion",
+      "name": "Log Completion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Logs workflow completion with statistics (filings processed, timestamp, status)"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Daily 7 AM CST": {
+      "main": [
+        [
+          {
+            "node": "GET Form 465 Filings from USAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Form 465 Filings from USAC": {
+      "main": [
+        [
+          {
+            "node": "Extract and Transform Filing Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract and Transform Filing Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Each Clinic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Each Clinic": {
+      "main": [
+        [
+          {
+            "node": "GET Historical Funding Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Historical Funding Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Historical Funding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Historical Funding": {
+      "main": [
+        [
+          {
+            "node": "Insert into Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert into Supabase": {
+      "main": [
+        [
+          {
+            "node": "Loop Back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Back": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Each Clinic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-11-09T00:00:00.000Z",
+  "versionId": "1.0.2-final"
+}
