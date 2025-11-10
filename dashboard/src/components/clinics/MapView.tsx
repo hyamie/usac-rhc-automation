@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import { Icon, LatLngExpression } from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import type { Database } from '@/types/database.types'
 import { MapPin, DollarSign, Building2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'

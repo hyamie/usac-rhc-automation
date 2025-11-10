@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, X, Calendar } from 'lucide-react'
+import { Plus, X, Calendar, List, Clock } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { TimelineView } from './TimelineView'
 import type { NoteItem } from '@/types/database.types'
 
 interface NotesModalProps {
@@ -36,6 +37,7 @@ export function NotesModal({
   const [isAdding, setIsAdding] = useState(false)
   const [newNoteText, setNewNoteText] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list')
 
   // Sort notes by timestamp (newest first)
   const sortedNotes = [...notes].sort(
@@ -86,8 +88,33 @@ export function NotesModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Notes</DialogTitle>
-          <DialogDescription>{clinicName}</DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Notes</DialogTitle>
+              <DialogDescription>{clinicName}</DialogDescription>
+            </div>
+            {/* View Mode Toggle */}
+            <div className="flex gap-1 border rounded-lg p-1 bg-muted/50">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8 px-3"
+                title="List View"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('timeline')}
+                className="h-8 px-3"
+                title="Timeline View"
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col min-h-0">
@@ -105,7 +132,7 @@ export function NotesModal({
 
           {/* Add Note Form */}
           {isAdding && (
-            <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+            <div className="mb-4 p-4 border rounded-lg bg-muted/50">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-sm font-semibold">New Note</h4>
                 <Button
@@ -143,20 +170,24 @@ export function NotesModal({
             </div>
           )}
 
-          {/* Notes List */}
+          {/* Notes Display */}
           <div className="flex-1 min-h-0">
             {sortedNotes.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <p>No notes yet.</p>
                 <p className="text-sm mt-2">Click "Add Note" to create your first note.</p>
               </div>
+            ) : viewMode === 'timeline' ? (
+              <ScrollArea className="h-full pr-4">
+                <TimelineView notes={sortedNotes} />
+              </ScrollArea>
             ) : (
               <ScrollArea className="h-full pr-4">
                 <div className="space-y-3">
                   {sortedNotes.map((noteItem, index) => (
                     <div
                       key={`${noteItem.timestamp}-${index}`}
-                      className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors"
+                      className="border rounded-lg p-4 bg-white dark:bg-card hover:bg-gray-50 dark:hover:bg-accent transition-colors"
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
