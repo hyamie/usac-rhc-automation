@@ -9,10 +9,17 @@ import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { FundingYearFilter } from '@/components/filters/FundingYearFilter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Search, Grid3x3, List, Columns2, FolderOpen } from 'lucide-react'
+import { Loader2, Search, Grid3x3, List, Columns2, FolderOpen, Map as MapIcon } from 'lucide-react'
 import { startOfDay, addDays } from 'date-fns'
+import dynamic from 'next/dynamic'
 
-type ViewMode = 'grid' | 'list' | 'compact'
+// Dynamically import MapView to avoid SSR issues with Leaflet
+const MapView = dynamic(
+  () => import('./MapView').then(mod => mod.MapView),
+  { ssr: false, loading: () => <div className="w-full h-[600px] rounded-lg border bg-muted flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div> }
+)
+
+type ViewMode = 'grid' | 'list' | 'compact' | 'map'
 
 export function ClinicList() {
   const [filters, setFilters] = useState<ClinicsFilters>({})
@@ -178,6 +185,7 @@ export function ClinicList() {
             size="sm"
             onClick={() => setViewMode('grid')}
             className="h-8 px-3"
+            title="Grid View"
           >
             <Grid3x3 className="h-4 w-4" />
           </Button>
@@ -186,6 +194,7 @@ export function ClinicList() {
             size="sm"
             onClick={() => setViewMode('list')}
             className="h-8 px-3"
+            title="List View"
           >
             <Columns2 className="h-4 w-4" />
           </Button>
@@ -194,39 +203,69 @@ export function ClinicList() {
             size="sm"
             onClick={() => setViewMode('compact')}
             className="h-8 px-3"
+            title="Compact View"
           >
             <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'map' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('map')}
+            className="h-8 px-3"
+            title="Map View"
+          >
+            <MapIcon className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {/* Results */}
       {isLoading ? (
-        <div className={`
-          grid gap-6
-          ${viewMode === 'grid' ? 'md:grid-cols-2 lg:grid-cols-3' : ''}
-          ${viewMode === 'list' ? 'md:grid-cols-2' : ''}
-          ${viewMode === 'compact' ? 'grid-cols-1' : ''}
-        `}>
-          {[...Array(6)].map((_, i) => (
-            <ClinicCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : clinics && clinics.length > 0 ? (
-        <>
+        viewMode === 'map' ? (
+          <div className="w-full h-[600px] rounded-lg border bg-muted flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
           <div className={`
             grid gap-6
             ${viewMode === 'grid' ? 'md:grid-cols-2 lg:grid-cols-3' : ''}
             ${viewMode === 'list' ? 'md:grid-cols-2' : ''}
             ${viewMode === 'compact' ? 'grid-cols-1' : ''}
           `}>
-            {(showAll ? clinics : clinics.slice(0, displayLimit)).map((clinic) => (
-              <ClinicCard key={clinic.id} clinic={clinic} onUpdate={() => refetch()} />
+            {[...Array(6)].map((_, i) => (
+              <ClinicCardSkeleton key={i} />
             ))}
           </div>
+        )
+      ) : clinics && clinics.length > 0 ? (
+        <>
+          {viewMode === 'map' ? (
+            <MapView clinics={clinics} />
+          ) : (
+            <div className={`
+              grid gap-6
+              ${viewMode === 'grid' ? 'md:grid-cols-2 lg:grid-cols-3' : ''}
+              ${viewMode === 'list' ? 'md:grid-cols-2' : ''}
+              ${viewMode === 'compact' ? 'grid-cols-1' : ''}
+            `}>
+              {(showAll ? clinics : clinics.slice(0, displayLimit)).map((clinic, index) => (
+                <div
+                  key={clinic.id}
+                  className={`animate-fadeInUp opacity-0`}
+                  style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
+                >
+                  <ClinicCard
+                    clinic={clinic}
+                    onUpdate={() => refetch()}
+                    searchTerm={debouncedSearch}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
-          {/* Load More / Show All Controls */}
-          {!showAll && clinics.length > displayLimit && (
+          {/* Load More / Show All Controls (hide in map view) */}
+          {viewMode !== 'map' && !showAll && clinics.length > displayLimit && (
             <div className="flex flex-col items-center gap-4 pt-6">
               <div className="text-sm text-muted-foreground">
                 Showing {displayLimit} of {clinics.length} clinics
@@ -247,7 +286,7 @@ export function ClinicList() {
             </div>
           )}
 
-          {showAll && clinics.length > 50 && (
+          {viewMode !== 'map' && showAll && clinics.length > 50 && (
             <div className="text-center pt-6">
               <Button
                 variant="outline"

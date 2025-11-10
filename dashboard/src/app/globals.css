@@ -81,3 +81,45 @@
     line-height: 1.3;
   }
 }
+
+@layer utilities {
+  /* Stagger animation for cards */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeInUp {
+    animation: fadeInUp 0.5s ease-out forwards;
+  }
+
+  /* Stagger delays */
+  .delay-0 { animation-delay: 0ms; }
+  .delay-75 { animation-delay: 75ms; }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+
+  /* Highlight animation for search results */
+  @keyframes highlight {
+    0%, 100% {
+      background-color: transparent;
+    }
+    50% {
+      background-color: rgb(250, 204, 21);
+    }
+  }
+
+  .animate-highlight {
+    animation: highlight 2s ease-in-out;
+  }
+}

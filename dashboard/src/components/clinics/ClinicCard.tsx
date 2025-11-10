@@ -14,6 +14,7 @@ import {
 import { FundingHistory } from './FundingHistory'
 import { NotesModal } from './NotesModal'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { highlightSearchTerm } from '@/lib/search-highlight'
 import type { Database, HistoricalFundingItem, NoteItem } from '@/types/database.types'
 import { MapPin, Calendar, DollarSign, FileText, Mail, Phone, User, Building2, Send, Tag, CheckCircle2, FileEdit } from 'lucide-react'
 import { useState } from 'react'
@@ -23,9 +24,10 @@ type Clinic = Database['public']['Tables']['clinics_pending_review']['Row']
 interface ClinicCardProps {
   clinic: Clinic
   onUpdate?: () => void
+  searchTerm?: string
 }
 
-export function ClinicCard({ clinic, onUpdate }: ClinicCardProps) {
+export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProps) {
   const [showFunding, setShowFunding] = useState(false)
   const [showContacts, setShowContacts] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
@@ -140,7 +142,7 @@ export function ClinicCard({ clinic, onUpdate }: ClinicCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-xl font-bold group-hover:text-primary transition-colors">
-              {clinic.clinic_name}
+              {highlightSearchTerm(clinic.clinic_name, searchTerm)}
             </CardTitle>
             <CardDescription className="mt-1">
               HCP #{clinic.hcp_number}
