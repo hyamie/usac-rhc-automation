@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dialog'
 import { FundingHistory } from './FundingHistory'
 import { NotesModal } from './NotesModal'
+import { OutreachButton } from '@/components/OutreachButton'
+import { OutreachStatus } from '@/components/OutreachStatus'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { highlightSearchTerm } from '@/lib/search-highlight'
 import type { Database, HistoricalFundingItem, NoteItem } from '@/types/database.types'
@@ -31,7 +33,7 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
   const [showFunding, setShowFunding] = useState(false)
   const [showContacts, setShowContacts] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
-  const [isStartingOutreach, setIsStartingOutreach] = useState(false)
+  const [showOutreach, setShowOutreach] = useState(false)
   const [isTogglingPrimaryConsultant, setIsTogglingPrimaryConsultant] = useState(false)
   const [isTogglingMailConsultant, setIsTogglingMailConsultant] = useState(false)
 
@@ -42,35 +44,8 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
   const notes = (clinic.notes as NoteItem[] | null) || []
   const notesCount = notes.length
 
-  // Determine if outreach is already started
-  const outreachStarted = clinic.outreach_status !== 'pending'
-
-  // Handle Start Outreach
-  const handleStartOutreach = async () => {
-    setIsStartingOutreach(true)
-    try {
-      const response = await fetch(`/api/clinics/${clinic.id}/start-outreach`, {
-        method: 'POST',
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to start outreach')
-      }
-
-      const result = await response.json()
-      console.log('Outreach started:', result)
-
-      // Call onUpdate callback to refresh the clinic list
-      if (onUpdate) {
-        onUpdate()
-      }
-    } catch (error) {
-      console.error('Error starting outreach:', error)
-      alert('Failed to start outreach. Please try again.')
-    } finally {
-      setIsStartingOutreach(false)
-    }
-  }
+  // Get primary contact email for outreach
+  const contactEmail = clinic.contact_email || clinic.mail_contact_email || undefined
 
   // Handle Toggle Primary Contact Consultant
   const handleTogglePrimaryConsultant = async () => {
@@ -127,7 +102,7 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
   // Determine status color for left border
   const getStatusColor = () => {
     if (clinic.processed) return 'border-l-green-500'
-    if (outreachStarted) return 'border-l-orange-500'
+    if (clinic.outreach_status && clinic.outreach_status !== 'pending') return 'border-l-orange-500'
     if (notesCount > 0) return 'border-l-blue-500'
     return 'border-l-gray-300'
   }
@@ -164,7 +139,7 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
                 Processed
               </Badge>
             )}
-            {outreachStarted && (
+            {clinic.outreach_status && clinic.outreach_status !== 'pending' && (
               <Badge variant="default" className="bg-orange-600 dark:bg-orange-700">
                 <Send className="h-3 w-3 mr-1" />
                 {clinic.outreach_status === 'ready_for_outreach' && 'Ready'}
@@ -176,29 +151,26 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
           </div>
         </div>
 
-        {/* Start Outreach Button - Prominent in header */}
-        <div className="mt-3">
+        {/* Outreach Actions */}
+        <div className="mt-3 space-y-2">
+          <OutreachButton
+            clinicId={clinic.id}
+            clinicName={clinic.clinic_name}
+            contactEmail={contactEmail}
+            onSuccess={onUpdate}
+          />
           <Button
-            onClick={handleStartOutreach}
-            disabled={outreachStarted || isStartingOutreach}
-            className="w-full"
-            variant={outreachStarted ? 'outline' : 'default'}
+            variant="ghost"
             size="sm"
+            onClick={() => setShowOutreach(!showOutreach)}
+            className="w-full"
           >
-            {isStartingOutreach ? (
-              <>Loading...</>
-            ) : outreachStarted ? (
-              <>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Outreach Started
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4 mr-2" />
-                Start Outreach
-              </>
-            )}
+            <Send className="h-4 w-4 mr-2" />
+            {showOutreach ? 'Hide' : 'Show'} Outreach History
           </Button>
+          {showOutreach && (
+            <OutreachStatus clinicId={clinic.id} />
+          )}
         </div>
       </CardHeader>
 
