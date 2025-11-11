@@ -30,10 +30,20 @@ Automate the process of identifying, ranking, enriching, and reaching out to USA
 
 ## Recent Changes
 
+### 2025-11-11
+- **Completed:** Phase 4 Planning & Infrastructure Upgrade
+- **Why:** Upgraded MCP tooling, switched to webapp profile for n8n/Supabase direct access
+- **Outcome:** Ready to build Phase 4 outreach system with enhanced MCP tools
+
+### 2025-11-10
+- **Completed:** Phase 4 Planning Session
+- **Why:** Designed complete outreach email system with template-based A/B/C testing
+- **Outcome:** Created PHASE4_PLAN.md with database schema, n8n workflows, Mike's voice profile
+
 ### 2025-11-09
-- **Completed:** n8n workflow imported and configured
-- **Why:** Core automation pipeline needed
-- **Outcome:** Main workflow operational on n8n Cloud
+- **Completed:** Phases 1-3.5 (Database + Dashboard + Visual Polish)
+- **Why:** Full-featured dashboard with 7 filters, map view, timeline, search highlights
+- **Outcome:** Production dashboard live at Vercel, all features tested and working
 
 ### 2025-11-08
 - **Completed:** Supabase database setup
@@ -45,23 +55,31 @@ Automate the process of identifying, ranking, enriching, and reaching out to USA
 ## Current State
 
 **What's Working:**
-- n8n workflow deployed to cloud
-- Supabase database operational
-- Database schema defined
-- Documentation complete (architecture, schema, workflows)
+✅ Supabase database operational with full schema
+✅ Next.js dashboard deployed to Vercel (production-ready)
+✅ All 7 filters working (Funding Year, State, Consultant, Date, Status, Search, View Modes)
+✅ Map view with geocoding
+✅ Timeline view, search highlights, dark mode
+✅ n8n workflow deployed to cloud
+✅ Mike's voice profile analyzed (10 real emails)
+✅ Phase 4 architecture planned
+✅ MCP tools upgraded (n8n, Supabase, Memory MCPs available)
 
-**Known Issues:**
-- Dashboard not yet built
-- Email integration not tested
-- Date filter issue in workflow (needs fix)
-- Real-time sync not configured
+**Current Phase:**
+🚀 **Phase 4: Smart Outreach System** (Starting Now)
+- Template-based A/B/C email system
+- Weekly performance optimization
+- Draft-based workflow (manual review before send)
+- Perplexity AI enrichment
+- Learning from edits
 
 **Next Steps:**
-1. Build Next.js dashboard
-2. Fix date filter in n8n workflow
-3. Configure email integration (Outlook API)
-4. Test end-to-end automation
-5. Deploy dashboard to production
+1. Create Phase 4 database tables (email_templates, email_instances, etc.)
+2. Bootstrap voice model from extracted_emails.json
+3. Generate first 3 weekly templates using Mike's voice profile
+4. Build n8n "Outreach Email Generation" workflow
+5. Test with 1 clinic
+6. Set up O365 integration for draft creation
 
 ---
 

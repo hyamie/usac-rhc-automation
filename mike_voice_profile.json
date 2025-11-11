@@ -1,0 +1,41 @@
+{
+  "tone": "conversational_professional",
+  "avg_sentence_length": 15.875,
+  "common_openings": [
+    "I sent you a couple emails yesterday with multiple HCP in each.  If you want to disregard those I can resend in that format.  Also, would you like each HCP in a separate email?",
+    "No problem.  Let me know when you guys are ready and we will make it happen.",
+    "Awesome.  Are these speeds working for you or would you like to see solutions with higher speeds?",
+    "Looks like they are extending the window so at least it's not as big of a time crunch now.  Let us know if we can help in anyway.",
+    "Hey Whitney,"
+  ],
+  "common_phrases": [
+    "I saw",
+    "Let me know",
+    "I wanted to",
+    "Look forward to",
+    "We can",
+    "We are",
+    "If you",
+    "Do you have",
+    "Would you",
+    "Happy to"
+  ],
+  "common_closings": [
+    "615-622-4603 Office"
+  ],
+  "avoid_phrases": [
+    "I hope this email finds you well",
+    "Please don't hesitate",
+    "I trust this",
+    "At your earliest convenience",
+    "Per our conversation",
+    "As per",
+    "Moving forward",
+    "Circle back",
+    "Touch base",
+    "Reach out to me",
+    "I wanted to reach out",
+    "Just reaching out",
+    "Excited to"
+  ]
+}
