@@ -1,0 +1,25 @@
+{
+  "templates": {
+    "template_a": {
+      "subject": "USAC RHC Support - {{clinic_name}}",
+      "body": "{{first_name}},\n\nI saw {{clinic_name}}'s Form 465 filing for {{funding_year}} and wanted to introduce myself.\n\n{{enrichment_context}}\n\nI'm Mike Hyam and I specialize in USAC Rural Health Care consulting. I've helped dozens of healthcare facilities in {{state}} navigate the RHC program and maximize their funding commitments. My background includes over 15 years working directly with USAC applications, competitive bidding processes, and ongoing compliance requirements.\n\nMany clinics find the USAC process overwhelming, especially with the technical requirements and documentation. We can help streamline your approach and make sure you're getting the full benefit of available funding.\n\nWould you have 15 minutes this week to discuss how we might support {{clinic_name}}'s USAC initiatives? I'm happy to share some specific examples of how we've helped similar facilities in rural {{state}}.\n\nLook forward to hearing from you.\n\nThanks,\nMike\n\n{{signature}}"
+    },
+    "template_b": {
+      "subject": "Quick question - {{clinic_name}} Form 465",
+      "body": "{{first_name}},\n\nI saw you filed a Form 465 for {{funding_year}} and wanted to check in.\n\n{{enrichment_context}}\n\nWe work with a lot of rural health clinics on their USAC funding, and I know the process can be pretty complex. Do you have someone helping you navigate the RHC program requirements, or are you handling everything internally?\n\nI've been doing USAC consulting for years and we can usually help clinics save time and avoid common pitfalls. Plus, we often find ways to increase funding commitments that facilities miss on their own.\n\nWould you be interested in a quick 10-minute call to see if we might be helpful? No pressure - just want to make sure you're getting the most out of the program.\n\nLet me know what works for your schedule.\n\nThanks,\nMike\n\n{{signature}}"
+    },
+    "template_c": {
+      "subject": "USAC {{funding_year}} - {{clinic_name}}",
+      "body": "{{first_name}},\n\nI noticed {{clinic_name}} submitted a Form 465 for {{funding_year}}.\n\n{{enrichment_context}}\n\nI'm a USAC Rural Health Care consultant and work with healthcare facilities across {{state}} to optimize their RHC funding. The program has gotten more competitive lately, and many clinics benefit from having someone who knows the system handle the technical details.\n\nWe can help with everything from competitive bidding to ongoing compliance, and our clients typically see better funding outcomes than they achieve on their own.\n\nIf you'd like to discuss how we might support {{clinic_name}}'s USAC efforts, I'm happy to set up a brief call. Would sometime this week work for you?\n\nThanks,\nMike\n\n{{signature}}"
+    }
+  },
+  "metadata": {
+    "version": "week-46-2025",
+    "contact_type": "direct",
+    "generated_at": "2025-11-11T16:18:01.680942",
+    "generated_by": "claude-sonnet-4-20250514",
+    "generation_cost": 0.014505,
+    "input_tokens": 1000,
+    "output_tokens": 767
+  }
+}
