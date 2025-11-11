@@ -1,0 +1,463 @@
+{
+  "name": "Outreach Email Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outreach-email",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Start Outreach",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "webhookId": "outreach-email"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "clinics",
+        "filterType": "manual",
+        "matchCase": false,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.body.clinic_id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "options": {
+          "returnAll": false,
+          "limit": 1
+        }
+      },
+      "id": "get-clinic",
+      "name": "Get Clinic Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-usac",
+          "name": "USAC Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determine contact type and week version\nconst clinic = $input.item.json;\n\nconst contactType = clinic.has_direct_contact ? 'direct' : 'consultant';\n\n// Calculate current week number\nconst today = new Date();\nconst startOfYear = new Date(today.getFullYear(), 0, 1);\nconst days = Math.floor((today - startOfYear) / (24 * 60 * 60 * 1000));\nconst weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);\nconst weekVersion = `week-${weekNumber}-${today.getFullYear()}`;\n\nreturn {\n  ...clinic,\n  contact_type: contactType,\n  week_version: weekVersion,\n  generated_at: new Date().toISOString()\n};"
+      },
+      "id": "determine-type",
+      "name": "Determine Contact Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "email_templates",
+        "filterType": "manual",
+        "matchCase": false,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "active",
+              "keyValue": "true",
+              "condition": "equals"
+            },
+            {
+              "keyName": "version",
+              "keyValue": "={{ $json.week_version }}",
+              "condition": "equals"
+            },
+            {
+              "keyName": "contact_type",
+              "keyValue": "={{ $json.contact_type }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "sort": {
+          "fields": [
+            {
+              "fieldName": "times_used",
+              "order": "ASC"
+            }
+          ]
+        },
+        "options": {
+          "returnAll": false,
+          "limit": 1
+        }
+      },
+      "id": "get-template",
+      "name": "Get Template (Rotating)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-usac",
+          "name": "USAC Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "perplexityApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "llama-3.1-sonar-small-128k-online"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"Find recent (last 6 months) information about {{ $('Get Clinic Details').item.json.clinic_name }} in {{ $('Get Clinic Details').item.json.city }}, {{ $('Get Clinic Details').item.json.state }}. Also find information about {{ $('Get Clinic Details').item.json.contact_name }} and their role. Focus on: recent expansions, awards, leadership changes, community involvement, healthcare initiatives. Return 2-3 specific, relevant facts for a personalized outreach email. Be concise.\"}]"
+            },
+            {
+              "name": "temperature",
+              "value": "0.3"
+            },
+            {
+              "name": "max_tokens",
+              "value": "200"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "perplexity-enrich",
+      "name": "Perplexity: Enrich Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 300],
+      "credentials": {
+        "perplexityApi": {
+          "id": "perplexity-api",
+          "name": "Perplexity API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Render template with clinic data and enrichment\nconst clinic = $('Get Clinic Details').item.json;\nconst template = $('Get Template (Rotating)').item.json;\nconst perplexity = $input.item.json;\n\n// Extract enrichment context\nconst enrichmentContext = perplexity.choices[0].message.content;\n\n// Extract first name\nconst firstName = clinic.contact_name.split(' ')[0];\n\n// Mike's signature\nconst signature = `Mike Hyams\\nCharger Access, LLC\\n615-622-4603 Office\\n206 Gothic Ct, Suite 304\\nFranklin, TN 37067\\nwww.chargeraccess.com`;\n\n// Replace placeholders in subject\nlet renderedSubject = template.subject_template\n  .replace(/\\{\\{clinic_name\\}\\}/g, clinic.clinic_name)\n  .replace(/\\{\\{funding_year\\}\\}/g, clinic.funding_year)\n  .replace(/\\{\\{city\\}\\}/g, clinic.city)\n  .replace(/\\{\\{state\\}\\}/g, clinic.state);\n\n// Replace placeholders in body\nlet renderedBody = template.body_template\n  .replace(/\\{\\{first_name\\}\\}/g, firstName)\n  .replace(/\\{\\{clinic_name\\}\\}/g, clinic.clinic_name)\n  .replace(/\\{\\{funding_year\\}\\}/g, clinic.funding_year)\n  .replace(/\\{\\{enrichment_context\\}\\}/g, enrichmentContext)\n  .replace(/\\{\\{city\\}\\}/g, clinic.city)\n  .replace(/\\{\\{state\\}\\}/g, clinic.state)\n  .replace(/\\{\\{signature\\}\\}/g, signature);\n\nreturn {\n  clinic_id: clinic.id,\n  template_id: template.id,\n  template_variant: template.template_variant,\n  subject_rendered: renderedSubject,\n  body_rendered: renderedBody,\n  enrichment_data: {\n    source: \"perplexity\",\n    context: enrichmentContext,\n    cost: 0.005\n  },\n  recipient_email: clinic.contact_email,\n  recipient_name: clinic.contact_name\n};"
+      },
+      "id": "render-template",
+      "name": "Render Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.microsoft.com/v1.0/me/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "subject",
+              "value": "={{ $json.subject_rendered }}"
+            },
+            {
+              "name": "importance",
+              "value": "Normal"
+            },
+            {
+              "name": "body",
+              "value": "={\"contentType\": \"Text\", \"content\": \"{{ $json.body_rendered }}\"}"
+            },
+            {
+              "name": "toRecipients",
+              "value": "=[{\"emailAddress\": {\"address\": \"{{ $json.recipient_email }}\", \"name\": \"{{ $json.recipient_name }}\"}}]"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "o365-draft",
+      "name": "O365: Create Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1450, 300],
+      "credentials": {
+        "microsoftOAuth2Api": {
+          "id": "o365-mike",
+          "name": "O365 Mike Hyams"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "email_instances",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "clinic_id",
+              "fieldValue": "={{ $('Render Template').item.json.clinic_id }}"
+            },
+            {
+              "fieldName": "template_id",
+              "fieldValue": "={{ $('Render Template').item.json.template_id }}"
+            },
+            {
+              "fieldName": "subject_rendered",
+              "fieldValue": "={{ $('Render Template').item.json.subject_rendered }}"
+            },
+            {
+              "fieldName": "body_rendered",
+              "fieldValue": "={{ $('Render Template').item.json.body_rendered }}"
+            },
+            {
+              "fieldName": "enrichment_data",
+              "fieldValue": "={{ JSON.stringify($('Render Template').item.json.enrichment_data) }}"
+            },
+            {
+              "fieldName": "draft_id",
+              "fieldValue": "={{ $('O365: Create Draft').item.json.id }}"
+            },
+            {
+              "fieldName": "draft_url",
+              "fieldValue": "={{ $('O365: Create Draft').item.json.webLink }}"
+            },
+            {
+              "fieldName": "draft_created_at",
+              "fieldValue": "={{ $('O365: Create Draft').item.json.createdDateTime }}"
+            },
+            {
+              "fieldName": "original_body",
+              "fieldValue": "={{ $('Render Template').item.json.body_rendered }}"
+            }
+          ]
+        }
+      },
+      "id": "store-instance",
+      "name": "Store Email Instance",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-usac",
+          "name": "USAC Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "email_templates",
+        "filterType": "manual",
+        "matchCase": false,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Get Template (Rotating)').item.json.id }}",
+              "condition": "equals"
+            }
+          ]
+        },
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "times_used",
+              "fieldValue": "={{ $('Get Template (Rotating)').item.json.times_used + 1 }}"
+            }
+          ]
+        }
+      },
+      "id": "update-usage",
+      "name": "Increment Template Usage",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1850, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-usac",
+          "name": "USAC Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"success\": true, \"draft_url\": \"{{ $('O365: Create Draft').item.json.webLink }}\", \"draft_id\": \"{{ $('O365: Create Draft').item.json.id }}\", \"template_variant\": \"{{ $('Render Template').item.json.template_variant }}\", \"instance_id\": \"{{ $('Store Email Instance').item.json.id }}\", \"enrichment_preview\": \"{{ $('Render Template').item.json.enrichment_data.context.substring(0, 100) }}...\", \"subject\": \"{{ $('Render Template').item.json.subject_rendered }}\", \"generated_at\": \"{{ new Date().toISOString() }}\"}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2050, 300]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook: Start Outreach": {
+      "main": [
+        [
+          {
+            "node": "Get Clinic Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Clinic Details": {
+      "main": [
+        [
+          {
+            "node": "Determine Contact Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Contact Type": {
+      "main": [
+        [
+          {
+            "node": "Get Template (Rotating)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Template (Rotating)": {
+      "main": [
+        [
+          {
+            "node": "Perplexity: Enrich Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity: Enrich Context": {
+      "main": [
+        [
+          {
+            "node": "Render Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Template": {
+      "main": [
+        [
+          {
+            "node": "O365: Create Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "O365: Create Draft": {
+      "main": [
+        [
+          {
+            "node": "Store Email Instance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Email Instance": {
+      "main": [
+        [
+          {
+            "node": "Increment Template Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Template Usage": {
+      "main": [
+        [
+          {
+            "node": "Respond to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "outreach-email-generation",
+  "meta": {
+    "instanceId": "usac-rhc-automation"
+  },
+  "tags": [
+    {
+      "name": "Phase 4.2",
+      "id": "phase-4-2"
+    },
+    {
+      "name": "Email Outreach",
+      "id": "email-outreach"
+    }
+  ]
+}
