@@ -1,0 +1,406 @@
+{
+  "name": "Outreach Email Generation (HTTP)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outreach-email",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Start Outreach",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "webhookId": "outreach-email"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/clinics?id=eq.{{ $json.body.clinic_id }}&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "get-clinic",
+      "name": "Get Clinic Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determine contact type and week version\nconst clinics = $input.item.json;\nconst clinic = Array.isArray(clinics) ? clinics[0] : clinics;\n\nconst contactType = clinic.has_direct_contact ? 'direct' : 'consultant';\n\n// Calculate current week number\nconst today = new Date();\nconst startOfYear = new Date(today.getFullYear(), 0, 1);\nconst days = Math.floor((today - startOfYear) / (24 * 60 * 60 * 1000));\nconst weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);\nconst weekVersion = `week-${weekNumber}-${today.getFullYear()}`;\n\nreturn {\n  ...clinic,\n  contact_type: contactType,\n  week_version: weekVersion,\n  generated_at: new Date().toISOString()\n};"
+      },
+      "id": "determine-type",
+      "name": "Determine Contact Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/email_templates?active=eq.true&version=eq.{{ $json.week_version }}&contact_type=eq.{{ $json.contact_type }}&order=times_used.asc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "get-template",
+      "name": "Get Template (Rotating)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "perplexityApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-sonar-small-128k-online\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Find recent (last 6 months) information about {{ $('Get Clinic Details').item.json[0].clinic_name }} in {{ $('Get Clinic Details').item.json[0].city }}, {{ $('Get Clinic Details').item.json[0].state }}. Also find information about {{ $('Get Clinic Details').item.json[0].contact_name }} and their role. Focus on: recent expansions, awards, leadership changes, community involvement, healthcare initiatives. Return 2-3 specific, relevant facts for a personalized outreach email. Be concise.\"\n    }\n  ],\n  \"temperature\": 0.3,\n  \"max_tokens\": 200\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "perplexity-enrich",
+      "name": "Perplexity: Enrich Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Render template with clinic data and enrichment\nconst clinicData = $('Get Clinic Details').item.json;\nconst clinic = Array.isArray(clinicData) ? clinicData[0] : clinicData;\n\nconst templateData = $('Get Template (Rotating)').item.json;\nconst template = Array.isArray(templateData) ? templateData[0] : templateData;\n\nconst perplexity = $input.item.json;\n\n// Extract enrichment context\nconst enrichmentContext = perplexity.choices[0].message.content;\n\n// Extract first name\nconst firstName = clinic.contact_name.split(' ')[0];\n\n// Mike's signature\nconst signature = `Mike Hyams\\nCharger Access, LLC\\n615-622-4603 Office\\n206 Gothic Ct, Suite 304\\nFranklin, TN 37067\\nwww.chargeraccess.com`;\n\n// Replace placeholders in subject\nlet renderedSubject = template.subject_template\n  .replace(/\\{\\{clinic_name\\}\\}/g, clinic.clinic_name)\n  .replace(/\\{\\{funding_year\\}\\}/g, clinic.funding_year)\n  .replace(/\\{\\{city\\}\\}/g, clinic.city)\n  .replace(/\\{\\{state\\}\\}/g, clinic.state);\n\n// Replace placeholders in body\nlet renderedBody = template.body_template\n  .replace(/\\{\\{first_name\\}\\}/g, firstName)\n  .replace(/\\{\\{clinic_name\\}\\}/g, clinic.clinic_name)\n  .replace(/\\{\\{funding_year\\}\\}/g, clinic.funding_year)\n  .replace(/\\{\\{enrichment_context\\}\\}/g, enrichmentContext)\n  .replace(/\\{\\{city\\}\\}/g, clinic.city)\n  .replace(/\\{\\{state\\}\\}/g, clinic.state)\n  .replace(/\\{\\{signature\\}\\}/g, signature);\n\nreturn {\n  clinic_id: clinic.id,\n  template_id: template.id,\n  template_variant: template.template_variant,\n  times_used: template.times_used,\n  subject_rendered: renderedSubject,\n  body_rendered: renderedBody,\n  enrichment_data: {\n    source: \"perplexity\",\n    context: enrichmentContext,\n    cost: 0.005\n  },\n  recipient_email: clinic.contact_email,\n  recipient_name: clinic.contact_name\n};"
+      },
+      "id": "render-template",
+      "name": "Render Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.microsoft.com/v1.0/me/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"subject\": \"{{ $json.subject_rendered }}\",\n  \"importance\": \"Normal\",\n  \"body\": {\n    \"contentType\": \"Text\",\n    \"content\": \"{{ $json.body_rendered }}\"\n  },\n  \"toRecipients\": [\n    {\n      \"emailAddress\": {\n        \"address\": \"{{ $json.recipient_email }}\",\n        \"name\": \"{{ $json.recipient_name }}\"\n      }\n    }\n  ]\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "o365-draft",
+      "name": "O365: Create Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/email_instances",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"clinic_id\": \"{{ $('Render Template').item.json.clinic_id }}\",\n  \"template_id\": \"{{ $('Render Template').item.json.template_id }}\",\n  \"subject_rendered\": \"{{ $('Render Template').item.json.subject_rendered }}\",\n  \"body_rendered\": \"{{ $('Render Template').item.json.body_rendered }}\",\n  \"enrichment_data\": {{ JSON.stringify($('Render Template').item.json.enrichment_data) }},\n  \"draft_id\": \"{{ $('O365: Create Draft').item.json.id }}\",\n  \"draft_url\": \"{{ $('O365: Create Draft').item.json.webLink }}\",\n  \"draft_created_at\": \"{{ $('O365: Create Draft').item.json.createdDateTime }}\",\n  \"original_body\": \"{{ $('Render Template').item.json.body_rendered }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "store-instance",
+      "name": "Store Email Instance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://fhuqiicgmfpnmficopqp.supabase.co/rest/v1/email_templates?id=eq.{{ $('Render Template').item.json.template_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZodXFpaWNnbWZwbm1maWNvcHFwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjQzOTkzNiwiZXhwIjoyMDc4MDE1OTM2fQ.mftyuE4grE-CSaT-KQh6iyzV1pcdBnwyarGAm6OFbf8"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"times_used\": {{ $('Render Template').item.json.times_used + 1 }}\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "update-usage",
+      "name": "Increment Template Usage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"draft_url\": \"{{ $('O365: Create Draft').item.json.webLink }}\",\n  \"draft_id\": \"{{ $('O365: Create Draft').item.json.id }}\",\n  \"template_variant\": \"{{ $('Render Template').item.json.template_variant }}\",\n  \"instance_id\": \"{{ $('Store Email Instance').item.json[0].id }}\",\n  \"enrichment_preview\": \"{{ $('Render Template').item.json.enrichment_data.context.substring(0, 100) }}...\",\n  \"subject\": \"{{ $('Render Template').item.json.subject_rendered }}\",\n  \"generated_at\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2050, 300]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook: Start Outreach": {
+      "main": [
+        [
+          {
+            "node": "Get Clinic Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Clinic Details": {
+      "main": [
+        [
+          {
+            "node": "Determine Contact Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Contact Type": {
+      "main": [
+        [
+          {
+            "node": "Get Template (Rotating)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Template (Rotating)": {
+      "main": [
+        [
+          {
+            "node": "Perplexity: Enrich Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity: Enrich Context": {
+      "main": [
+        [
+          {
+            "node": "Render Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Template": {
+      "main": [
+        [
+          {
+            "node": "O365: Create Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "O365: Create Draft": {
+      "main": [
+        [
+          {
+            "node": "Store Email Instance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Email Instance": {
+      "main": [
+        [
+          {
+            "node": "Increment Template Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Template Usage": {
+      "main": [
+        [
+          {
+            "node": "Respond to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "outreach-email-generation-http",
+  "meta": {
+    "instanceId": "usac-rhc-automation"
+  },
+  "tags": [
+    {
+      "name": "Phase 4.2",
+      "id": "phase-4-2"
+    },
+    {
+      "name": "Email Outreach",
+      "id": "email-outreach"
+    },
+    {
+      "name": "HTTP Nodes",
+      "id": "http-nodes"
+    }
+  ]
+}

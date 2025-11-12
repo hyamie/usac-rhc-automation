@@ -1,0 +1,83 @@
+{
+  "project": {
+    "name": "USAC RHC Automation",
+    "type": "workflow-automation",
+    "description": "n8n workflow automation + Supabase database + Next.js dashboard",
+    "techStack": ["n8n", "Next.js", "Supabase", "PostgreSQL", "TypeScript"],
+    "repository": "https://github.com/Zie619/usac-rhc-automation"
+  },
+  "mcp": {
+    "defaultProfile": "webapp",
+    "requiredMcps": [
+      "n8n",
+      "n8n-workflows-docs",
+      "supabase-usac",
+      "playwright",
+      "github",
+      "filesystem",
+      "git",
+      "context7"
+    ],
+    "phaseProfiles": {
+      "planning": {
+        "profile": "core",
+        "mcps": ["filesystem", "git", "github", "context7"],
+        "reason": "Lightweight profile for planning and research"
+      },
+      "workflow-development": {
+        "profile": "webapp",
+        "mcps": ["n8n", "n8n-workflows-docs", "supabase-usac", "github", "git"],
+        "reason": "n8n workflow creation and database integration"
+      },
+      "dashboard-development": {
+        "profile": "webapp",
+        "mcps": ["supabase-usac", "playwright", "github", "git", "filesystem"],
+        "reason": "Next.js dashboard with Supabase backend and testing"
+      },
+      "database-migration": {
+        "profile": "database",
+        "mcps": ["supabase-usac", "postgres", "sqlite", "github", "git"],
+        "reason": "Database schema changes and migrations"
+      },
+      "deployment": {
+        "profile": "donnie",
+        "mcps": ["docker", "github", "cloudflare", "axiom", "supabase-usac"],
+        "reason": "Infrastructure deployment with monitoring"
+      },
+      "testing": {
+        "profile": "webapp",
+        "mcps": ["playwright", "supabase-usac", "n8n", "github"],
+        "reason": "End-to-end testing and validation"
+      }
+    }
+  },
+  "agents": {
+    "primary": "webapp-dev",
+    "orchestrator": "donnie",
+    "specialized": ["n8n-mcp", "cold-email"]
+  },
+  "skills": {
+    "recommended": [
+      "webapp-testing",
+      "systematic-debugging",
+      "executing-plans",
+      "verification-before-completion"
+    ]
+  },
+  "automation": {
+    "autoLoadProfile": true,
+    "autoDetectPhase": true,
+    "suggestProfileSwitch": true,
+    "displayAvailableTools": true
+  },
+  "context": {
+    "workingDirectory": "C:\\claudeagents\\projects\\usac-rhc-automation",
+    "keyFiles": [
+      "workflows/*.json",
+      "database/schema.sql",
+      "dashboard/src/**/*.tsx",
+      "docs/*.md"
+    ],
+    "currentPhase": "workflow-development"
+  }
+}
