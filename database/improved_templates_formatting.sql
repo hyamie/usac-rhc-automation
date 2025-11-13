@@ -1,0 +1,158 @@
+-- Improved Template Formatting for Better Enrichment Integration
+-- Version: 2.0 - Enhanced readability and natural enrichment flow
+-- Date: 2025-11-13
+
+-- UPDATE Direct Template A (Professional) - Improved formatting
+UPDATE email_templates
+SET
+  subject_template = 'Form 465 filing + {{city}} connectivity + {{clinic_name}}',
+  body_template = 'Hi {{first_name}},
+
+I noticed {{clinic_name}} filed a Form 465 for Funding Year {{funding_year}}. {{enrichment_context}}
+
+Many rural health clinics don''t realize they''re overpaying for internet connectivity. We serve healthcare facilities across Tennessee and surrounding states with enterprise-grade fiber connections at rates significantly lower than national carriers.
+
+As an experienced ISP serving USAC RHC participants, we deliver symmetrical gigabit speeds with 99.9% uptime guarantees. Our local support team responds within hours, not days. That means fewer dropped connections and more reliable telehealth visits for your patients.
+
+I know what you''re thinking: "We already have a provider." That''s exactly why we reach out. Most clinics we work with save 30-40% on their connectivity costs while getting better service. No equipment changes needed. We handle the transition seamlessly.
+
+Do you have time over the next week or two to learn more? Let me know what works for you and I''ll send a calendar invite accordingly.
+
+Best regards,
+
+{{signature}}',
+  tone = 'professional',
+  generated_by = 'cold-email-agent-v2'
+WHERE id = '1bac9ce9-e674-4ed6-a017-3509da4d73e0';
+
+-- UPDATE Direct Template B (Conversational) - Improved formatting
+UPDATE email_templates
+SET
+  subject_template = '{{city}} healthcare + connectivity costs + {{clinic_name}}',
+  body_template = 'Hi {{first_name}},
+
+I saw {{clinic_name}} filed your Form 465 for Funding Year {{funding_year}}. {{enrichment_context}}
+
+Here''s the deal: most rural clinics are paying way too much for internet service that doesn''t work half the time. We''re an ISP that focuses on healthcare facilities in the RHC program.
+
+We provide fiber connections that actually work. I mean real uptime, not the "it''ll be back up tomorrow" kind. And we do it at prices that are 30-40% lower than what most clinics pay the big national carriers.
+
+The best part? We''re local. When something goes wrong, you talk to a real person in Tennessee. Not a call center three states away that transfers you five times.
+
+I''m guessing you''re thinking "switching sounds like a hassle." It''s not. We handle everything. Your staff won''t even notice the switch except that things will work better.
+
+Do you have time over the next week or two to learn more? Let me know what works for you and I''ll send a calendar invite accordingly.
+
+Thanks,
+
+{{signature}}',
+  tone = 'conversational',
+  generated_by = 'cold-email-agent-v2'
+WHERE id = 'ef694231-97e6-412a-9b58-07ca0f78fac7';
+
+-- UPDATE Direct Template C (Hybrid) - Improved formatting
+UPDATE email_templates
+SET
+  subject_template = 'Rural telehealth + Form 465 + {{clinic_name}}',
+  body_template = 'Hi {{first_name}},
+
+I noticed {{clinic_name}} recently filed your Form 465 for Funding Year {{funding_year}}. {{enrichment_context}}
+
+Most rural health clinics face the same challenge: paying premium prices for internet connectivity that barely supports telehealth appointments. We''re an ISP specializing in healthcare facilities participating in the RHC program.
+
+Our fiber connections deliver symmetrical gigabit speeds with 99.9% uptime. That''s real uptime, not "best effort." And we do it at costs 30-40% lower than most national carriers. Our support team is based locally in Tennessee and responds in hours, not days.
+
+I know switching providers sounds complicated. It''s actually straightforward. We handle the technical transition. No downtime. No equipment changes. Your team keeps working while we manage everything behind the scenes.
+
+Do you have time over the next week or two to learn more? Let me know what works for you and I''ll send a calendar invite accordingly.
+
+Best regards,
+
+{{signature}}',
+  tone = 'hybrid',
+  generated_by = 'cold-email-agent-v2'
+WHERE id = 'f6fedd7d-18c8-47ec-9eca-a20c9759c7bb';
+
+-- UPDATE Consultant Template A (Professional) - Improved formatting
+UPDATE email_templates
+SET
+  subject_template = 'RHC program + {{clinic_name}} connectivity + Funding Year {{funding_year}}',
+  body_template = 'Hi {{first_name}},
+
+I see you''re working with {{clinic_name}} on their Form 465 for Funding Year {{funding_year}}. {{enrichment_context}}
+
+We''re an ISP specializing in connectivity services for USAC Rural Health Care program participants. We provide enterprise-grade fiber connections to healthcare facilities across Tennessee and surrounding states.
+
+Our value proposition is straightforward: symmetrical gigabit speeds with 99.9% uptime guarantees at rates 30-40% below national carriers. We maintain local support teams that respond within hours. Our technical infrastructure is designed specifically for healthcare facility requirements.
+
+When you''re evaluating service providers for {{clinic_name}}, we welcome the opportunity to submit a competitive bid. We have extensive experience serving RHC participants and understand the connectivity demands of modern rural healthcare delivery.
+
+Do you have time over the next week or two to learn more? Let me know what works for you and I''ll send a calendar invite accordingly.
+
+Best regards,
+
+{{signature}}',
+  tone = 'professional',
+  generated_by = 'cold-email-agent-v2'
+WHERE contact_type = 'consultant' AND template_variant = 'A' AND version = 'week-46-2025';
+
+-- UPDATE Consultant Template B (Conversational) - Improved formatting
+UPDATE email_templates
+SET
+  subject_template = '{{clinic_name}} + better connectivity options + {{city}}',
+  body_template = 'Hi {{first_name}},
+
+I noticed you''re working with {{clinic_name}} on their Funding Year {{funding_year}} Form 465. {{enrichment_context}}
+
+We''re an ISP that focuses on rural healthcare facilities in the USAC program. I wanted to introduce ourselves in case you''re looking at connectivity options for {{clinic_name}}.
+
+Here''s what we bring to the table: fiber connections that actually work (99.9% uptime), local support based in Tennessee, and pricing that''s typically 30-40% lower than the national carriers. We specialize in healthcare connectivity, so we understand what clinics need.
+
+If you''re evaluating providers for {{clinic_name}}, we''d appreciate the chance to compete. We''ve got solid references from other RHC participants we serve.
+
+Do you have time over the next week or two to learn more? Let me know what works for you and I''ll send a calendar invite accordingly.
+
+Thanks,
+
+{{signature}}',
+  tone = 'conversational',
+  generated_by = 'cold-email-agent-v2'
+WHERE contact_type = 'consultant' AND template_variant = 'B' AND version = 'week-46-2025';
+
+-- UPDATE Consultant Template C (Hybrid) - Improved formatting
+UPDATE email_templates
+SET
+  subject_template = 'Healthcare connectivity + {{city}} + {{clinic_name}}',
+  body_template = 'Hi {{first_name}},
+
+I see you''re assisting {{clinic_name}} with their Form 465 for Funding Year {{funding_year}}. {{enrichment_context}}
+
+We''re an ISP providing connectivity services to USAC Rural Health Care program participants. I wanted to introduce Charger Access as you evaluate options for {{clinic_name}}.
+
+We deliver symmetrical gigabit fiber with 99.9% uptime at costs 30-40% below typical national carrier rates. Our support team is based locally in Tennessee with response times measured in hours. We specialize in healthcare facility connectivity requirements.
+
+If you''re comparing providers for {{clinic_name}}, we welcome the opportunity to submit a competitive proposal. We have strong references from other RHC participants we currently serve.
+
+Do you have time over the next week or two to learn more? Let me know what works for you and I''ll send a calendar invite accordingly.
+
+Best regards,
+
+{{signature}}',
+  tone = 'hybrid',
+  generated_by = 'cold-email-agent-v2'
+WHERE contact_type = 'consultant' AND template_variant = 'C' AND version = 'week-46-2025';
+
+-- Verify all templates have been updated
+SELECT
+  id,
+  version,
+  template_variant,
+  contact_type,
+  tone,
+  LEFT(subject_template, 60) as subject_preview,
+  LENGTH(body_template) as body_length,
+  active,
+  generated_by
+FROM email_templates
+WHERE version = 'week-46-2025'
+ORDER BY contact_type, template_variant;
