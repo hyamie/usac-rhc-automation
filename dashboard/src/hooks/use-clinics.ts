@@ -8,10 +8,12 @@ export interface ClinicsFilters {
   state?: string
   funding_year?: string
   application_type?: string
+  service_type?: string  // Request for Services filter
   processed?: boolean | 'has_notes'  // Can be true, false, or 'has_notes'
   dateFrom?: string
   dateTo?: string
   searchTerm?: string  // Search across all text fields
+  isConsultant?: boolean  // Consultant contact filter
 }
 
 export function useClinics(filters: ClinicsFilters = {}) {
@@ -36,6 +38,14 @@ export function useClinics(filters: ClinicsFilters = {}) {
 
       if (filters.application_type) {
         query = query.eq('application_type', filters.application_type)
+      }
+
+      if (filters.service_type) {
+        query = query.eq('service_type', filters.service_type)
+      }
+
+      if (filters.isConsultant !== undefined) {
+        query = query.eq('has_direct_contact', !filters.isConsultant)
       }
 
       // Handle processed filter (including 'has_notes' option)

@@ -8,6 +8,7 @@ import { SingleDayPicker } from '@/components/filters/SingleDayPicker'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { FundingYearFilter } from '@/components/filters/FundingYearFilter'
 import { StateFilter } from '@/components/filters/StateFilter'
+import { ServiceTypeFilter } from '@/components/filters/ServiceTypeFilter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Search, Grid3x3, List, Columns2, FolderOpen, Map as MapIcon } from 'lucide-react'
@@ -28,6 +29,7 @@ export function ClinicList() {
   const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
   const [fundingYear, setFundingYear] = useState<'all' | '2025' | '2026'>('all')
   const [stateFilter, setStateFilter] = useState<'all' | string>('all')
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<'all' | string>('all')
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [displayLimit, setDisplayLimit] = useState(50)
@@ -101,6 +103,14 @@ export function ClinicList() {
     }))
   }
 
+  const handleServiceTypeFilterChange = (value: 'all' | string) => {
+    setServiceTypeFilter(value)
+    setFilters((prev) => ({
+      ...prev,
+      service_type: value === 'all' ? undefined : value,
+    }))
+  }
+
   // Calculate counts for consultant filter (removed - consultant detection not in current schema)
   const consultantCounts = {
     all: clinics?.length || 0,
@@ -142,9 +152,15 @@ export function ClinicList() {
         />
       </div>
 
-      {/* Secondary Filters Row - Status & Search */}
+      {/* Secondary Filters Row - Service Type, Status & Search */}
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex gap-3 items-center flex-wrap">
+          {/* Service Type Filter */}
+          <ServiceTypeFilter
+            value={serviceTypeFilter}
+            onChange={handleServiceTypeFilterChange}
+          />
+
           <div className="flex gap-2 items-center">
             <span className="text-sm font-medium">Status:</span>
             <div className="flex gap-1">
@@ -332,6 +348,7 @@ export function ClinicList() {
               setFundingYear('all')
               setStateFilter('all')
               setConsultantFilter('all')
+              setServiceTypeFilter('all')
             }}
           >
             Clear All Filters
