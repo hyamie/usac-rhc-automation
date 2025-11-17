@@ -12,13 +12,14 @@ interface ServiceTypeFilterProps {
   className?: string;
 }
 
-// Request for Services options based on USAC Form 465
+// Request for Services options from USAC Form 465 API
+// These are the actual values that appear in the database
 const SERVICE_TYPES = [
-  { value: 'telecommunications_only', label: 'Telecommunications Service ONLY' },
-  { value: 'both', label: 'Both Telecommunications & Internet Services' },
-  { value: 'voice', label: 'Voice' },
-  { value: 'data', label: 'Data' },
-  { value: 'other', label: 'Other' },
+  { value: 'Voice', label: 'Voice' },
+  { value: 'Internet', label: 'Internet' },
+  { value: 'Data Circuit', label: 'Data Circuit' },
+  { value: 'Bundled Services', label: 'Bundled Services' },
+  { value: 'Dark Fiber', label: 'Dark Fiber' },
 ];
 
 export function ServiceTypeFilter({

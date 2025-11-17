@@ -107,7 +107,7 @@ export function ClinicList() {
     setServiceTypeFilter(value)
     setFilters((prev) => ({
       ...prev,
-      service_type: value === 'all' ? undefined : value,
+      request_for_services: value === 'all' ? undefined : value,
     }))
   }
 

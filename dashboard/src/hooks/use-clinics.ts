@@ -8,7 +8,8 @@ export interface ClinicsFilters {
   state?: string
   funding_year?: string
   application_type?: string
-  service_type?: string  // Request for Services filter
+  request_for_services?: string  // Request for Services filter (Voice, Internet, etc.)
+  service_type?: string  // Description of services
   processed?: boolean | 'has_notes'  // Can be true, false, or 'has_notes'
   dateFrom?: string
   dateTo?: string
@@ -38,6 +39,10 @@ export function useClinics(filters: ClinicsFilters = {}) {
 
       if (filters.application_type) {
         query = query.eq('application_type', filters.application_type)
+      }
+
+      if (filters.request_for_services) {
+        query = query.eq('request_for_services', filters.request_for_services)
       }
 
       if (filters.service_type) {
@@ -84,6 +89,7 @@ export function useClinics(filters: ClinicsFilters = {}) {
           mail_contact_org_name.ilike.${searchPattern},
           mail_contact_phone.ilike.${searchPattern},
           mail_contact_email.ilike.${searchPattern},
+          request_for_services.ilike.${searchPattern},
           service_type.ilike.${searchPattern},
           funding_year.ilike.${searchPattern},
           application_type.ilike.${searchPattern}

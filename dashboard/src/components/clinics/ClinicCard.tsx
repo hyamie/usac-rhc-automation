@@ -134,6 +134,11 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
                 FY {clinic.funding_year}
               </Badge>
             )}
+            {clinic.request_for_services && (
+              <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950 dark:text-purple-100 dark:border-purple-800">
+                {clinic.request_for_services}
+              </Badge>
+            )}
             {clinic.processed && (
               <Badge variant="default" className="bg-green-600 dark:bg-green-700">
                 Processed

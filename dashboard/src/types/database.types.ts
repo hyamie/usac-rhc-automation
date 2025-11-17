@@ -47,8 +47,9 @@ export interface Database {
           form_465_pdf_url: string | null
 
           // Service details
-          service_type: string | null
-          contract_length: number | null
+          request_for_services?: string | null
+          service_type?: string | null
+          contract_length?: number | null
 
           // NEW: Historical funding (JSONB array)
           historical_funding: Json | null
@@ -104,6 +105,7 @@ export interface Database {
           form_465_pdf_url?: string | null
 
           // Service details
+          request_for_services?: string | null
           service_type?: string | null
           contract_length?: number | null
 
@@ -161,6 +163,7 @@ export interface Database {
           form_465_pdf_url?: string | null
 
           // Service details
+          request_for_services?: string | null
           service_type?: string | null
           contract_length?: number | null
 
