@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
 import { ClinicCardSkeleton } from './ClinicCardSkeleton'
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Loader2, Search, Grid3x3, List, Columns2, FolderOpen, Map as MapIcon } from 'lucide-react'
 import { startOfDay, addDays } from 'date-fns'
 import dynamic from 'next/dynamic'
+import { aggregateClinicsByHCP } from '@/lib/clinic-aggregation'
 
 // Dynamically import MapView to avoid SSR issues with Leaflet
 const MapView = dynamic(
@@ -37,6 +38,12 @@ export function ClinicList() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
 
   const { data: clinics, isLoading, error, refetch } = useClinics(filters)
+
+  // Aggregate clinics by HCP number
+  const aggregatedClinics = useMemo(() => {
+    if (!clinics) return []
+    return aggregateClinicsByHCP(clinics)
+  }, [clinics])
 
   // Debounce search input (500ms delay)
   useEffect(() => {
@@ -267,10 +274,10 @@ export function ClinicList() {
             ))}
           </div>
         )
-      ) : clinics && clinics.length > 0 ? (
+      ) : aggregatedClinics && aggregatedClinics.length > 0 ? (
         <>
           {viewMode === 'map' ? (
-            <MapView clinics={clinics} />
+            <MapView clinics={clinics || []} />
           ) : (
             <div className={`
               grid gap-6
@@ -278,9 +285,9 @@ export function ClinicList() {
               ${viewMode === 'list' ? 'md:grid-cols-2' : ''}
               ${viewMode === 'compact' ? 'grid-cols-1' : ''}
             `}>
-              {(showAll ? clinics : clinics.slice(0, displayLimit)).map((clinic, index) => (
+              {(showAll ? aggregatedClinics : aggregatedClinics.slice(0, displayLimit)).map((clinic, index) => (
                 <div
-                  key={clinic.id}
+                  key={clinic.hcp_number}
                   className={`animate-fadeInUp opacity-0`}
                   style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
                 >
@@ -295,10 +302,10 @@ export function ClinicList() {
           )}
 
           {/* Load More / Show All Controls (hide in map view) */}
-          {viewMode !== 'map' && !showAll && clinics.length > displayLimit && (
+          {viewMode !== 'map' && !showAll && aggregatedClinics.length > displayLimit && (
             <div className="flex flex-col items-center gap-4 pt-6">
               <div className="text-sm text-muted-foreground">
-                Showing {displayLimit} of {clinics.length} clinics
+                Showing {displayLimit} of {aggregatedClinics.length} HCP groups ({clinics?.length || 0} total applications)
               </div>
               <div className="flex gap-3">
                 <Button

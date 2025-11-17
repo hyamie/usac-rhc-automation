@@ -18,13 +18,14 @@ import { OutreachStatus } from '@/components/OutreachStatus'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { highlightSearchTerm } from '@/lib/search-highlight'
 import type { Database, HistoricalFundingItem, NoteItem } from '@/types/database.types'
+import type { AggregatedClinic } from '@/lib/clinic-aggregation'
 import { MapPin, Calendar, DollarSign, FileText, Mail, Phone, User, Building2, Send, Tag, CheckCircle2, FileEdit } from 'lucide-react'
 import { useState } from 'react'
 
 type Clinic = Database['public']['Tables']['clinics_pending_review']['Row']
 
 interface ClinicCardProps {
-  clinic: Clinic
+  clinic: Clinic | AggregatedClinic
   onUpdate?: () => void
   searchTerm?: string
 }
@@ -36,6 +37,10 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
   const [showOutreach, setShowOutreach] = useState(false)
   const [isTogglingPrimaryConsultant, setIsTogglingPrimaryConsultant] = useState(false)
   const [isTogglingMailConsultant, setIsTogglingMailConsultant] = useState(false)
+
+  // Check if this is an aggregated clinic
+  const isAggregated = 'application_count' in clinic && clinic.application_count > 1
+  const aggregatedClinic = isAggregated ? (clinic as AggregatedClinic) : null
 
   // Parse historical funding JSONB
   const historicalFunding = clinic.historical_funding as HistoricalFundingItem[] | null
@@ -121,7 +126,11 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
             </CardTitle>
             <CardDescription className="mt-1">
               HCP #{clinic.hcp_number}
-              {clinic.application_number && (
+              {isAggregated ? (
+                <span className="ml-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                  {aggregatedClinic?.application_count} Applications
+                </span>
+              ) : clinic.application_number && (
                 <span className="ml-2 text-xs">
                   App: {clinic.application_number}
                 </span>
@@ -243,7 +252,33 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
         )}
 
         {/* Historical Funding */}
-        {historicalFunding && Array.isArray(historicalFunding) && historicalFunding.length > 0 && (
+        {isAggregated && aggregatedClinic ? (
+          <div className="mt-3 pt-3 border-t">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFunding(!showFunding)}
+              className="w-full mb-2"
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              {showFunding ? 'Hide' : 'Show'} Total Funding: {formatCurrency(aggregatedClinic.total_funding)}
+            </Button>
+            {showFunding && (
+              <div className="space-y-2 text-sm">
+                {Object.entries(aggregatedClinic.aggregated_funding)
+                  .sort(([a], [b]) => b.localeCompare(a))
+                  .map(([year, amount]) => (
+                    <div key={year} className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                      <span className="font-medium">FY {year}</span>
+                      <span className="text-green-600 dark:text-green-400 font-semibold">
+                        {formatCurrency(amount)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        ) : historicalFunding && Array.isArray(historicalFunding) && historicalFunding.length > 0 && (
           <div className="mt-3 pt-3 border-t">
             <Button
               variant="ghost"
