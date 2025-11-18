@@ -43,15 +43,38 @@ export function FundingHistory({
       return [];
     }
 
-    return historicalFunding
+    // Group by year and aggregate amounts (in case of duplicates)
+    const byYear: Record<string, HistoricalFundingItem> = {};
+
+    historicalFunding
       .filter((item): item is HistoricalFundingItem => {
         return item && typeof item === 'object' && 'year' in item && 'amount' in item;
       })
-      .sort((a, b) => {
-        const yearA = parseInt(a.year);
-        const yearB = parseInt(b.year);
-        return yearB - yearA;
+      .forEach(item => {
+        if (!byYear[item.year]) {
+          byYear[item.year] = {
+            year: item.year,
+            amount: 0,
+            locations: []
+          };
+        }
+        byYear[item.year].amount += item.amount || 0;
+
+        // Merge locations if they exist
+        if (item.locations && item.locations.length > 0) {
+          byYear[item.year].locations = [
+            ...(byYear[item.year].locations || []),
+            ...item.locations
+          ];
+        }
       });
+
+    // Convert to array and sort by year descending
+    return Object.values(byYear).sort((a, b) => {
+      const yearA = parseInt(a.year);
+      const yearB = parseInt(b.year);
+      return yearB - yearA;
+    });
   }, [historicalFunding]);
 
   if (fundingData.length === 0) {
