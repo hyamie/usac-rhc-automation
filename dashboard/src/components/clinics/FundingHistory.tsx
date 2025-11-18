@@ -38,13 +38,11 @@ export function FundingHistory({
     }).format(amount);
   };
 
-  // Parse and validate historical funding data
   const fundingData = React.useMemo(() => {
     if (!historicalFunding || !Array.isArray(historicalFunding)) {
       return [];
     }
 
-    // Filter valid items and sort by year descending
     return historicalFunding
       .filter((item): item is HistoricalFundingItem => {
         return item && typeof item === 'object' && 'year' in item && 'amount' in item;
@@ -68,7 +66,6 @@ export function FundingHistory({
     return fundingData.reduce((sum, item) => sum + (item.amount || 0), 0);
   };
 
-  // Horizontal layout (for compatibility with existing usage)
   if (layout === 'horizontal') {
     return (
       <div className="space-y-2">
@@ -111,7 +108,6 @@ export function FundingHistory({
     );
   }
 
-  // Vertical layout with expandable locations
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
@@ -126,7 +122,6 @@ export function FundingHistory({
 
           return (
             <div key={item.year} className="border border-gray-200 rounded-md overflow-hidden">
-              {/* Year Row - Always Shown */}
               <button
                 onClick={() => hasLocations && toggleYear(item.year)}
                 disabled={!hasLocations}
@@ -144,7 +139,7 @@ export function FundingHistory({
                       <ChevronRight className="h-4 w-4 text-gray-500 flex-shrink-0" />
                     )
                   ) : (
-                    <div className="w-4 flex-shrink-0" /> {/* Spacer */}
+                    <div className="w-4 flex-shrink-0" />
                   )}
                   <span className="font-medium text-gray-900">FY {item.year}</span>
                   {hasLocations && item.locations!.length > 1 && (
@@ -158,7 +153,6 @@ export function FundingHistory({
                 </span>
               </button>
 
-              {/* Locations - Shown When Expanded */}
               {isExpanded && hasLocations && (
                 <div className="border-t border-gray-200 bg-gray-50 px-3 py-2 space-y-2">
                   {item.locations!.map((location, idx) => (
