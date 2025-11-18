@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
 import { ClinicCardSkeleton } from './ClinicCardSkeleton'
+import { SelectionToolbar } from './SelectionToolbar'
 import { DateRangeFilter } from '@/components/filters/DateRangeFilter'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { FundingYearFilter } from '@/components/filters/FundingYearFilter'
 import { StateFilter } from '@/components/filters/StateFilter'
 import { ServiceTypeFilter } from '@/components/filters/ServiceTypeFilter'
+import { ClinicSelectionProvider } from '@/contexts/ClinicSelectionContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Search, Grid3x3, List, Columns2, FolderOpen, Map as MapIcon } from 'lucide-react'
@@ -158,9 +160,13 @@ export function ClinicList() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Primary Filters Row - Funding Year, State, Contacts, Date */}
-      <div className="flex flex-wrap gap-4 items-center p-4 bg-muted/50 rounded-lg border">
+    <ClinicSelectionProvider>
+      <div className="space-y-6">
+        {/* Selection Toolbar */}
+        <SelectionToolbar clinics={aggregatedClinics} />
+
+        {/* Primary Filters Row - Funding Year, State, Contacts, Date */}
+        <div className="flex flex-wrap gap-4 items-center p-4 bg-muted/50 rounded-lg border">
         <FundingYearFilter
           value={fundingYear}
           onChange={handleFundingYearChange}
@@ -390,6 +396,7 @@ export function ClinicList() {
           Showing all {clinics.length} clinic{clinics.length !== 1 ? 's' : ''}
         </div>
       )}
-    </div>
+      </div>
+    </ClinicSelectionProvider>
   )
 }

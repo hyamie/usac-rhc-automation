@@ -32,12 +32,30 @@ export interface AggregatedClinic extends Omit<Clinic, 'id' | 'application_numbe
 }
 
 /**
- * Aggregates multiple clinic applications under the same HCP number
+ * Aggregates multiple clinic applications under the same HCP number OR manual group
  * Sums historical funding amounts by year
  */
 export function aggregateClinicsByHCP(clinics: Clinic[]): AggregatedClinic[] {
-  // Group by HCP number
-  const grouped = clinics.reduce((acc, clinic) => {
+  // First, separate clinics into grouped and non-grouped
+  const manuallyGrouped: Record<string, Clinic[]> = {}
+  const ungroupedClinics: Clinic[] = []
+
+  clinics.forEach(clinic => {
+    if (clinic.belongs_to_group_id) {
+      // This clinic belongs to a manual group
+      const groupId = clinic.belongs_to_group_id
+      if (!manuallyGrouped[groupId]) {
+        manuallyGrouped[groupId] = []
+      }
+      manuallyGrouped[groupId].push(clinic)
+    } else {
+      // This clinic is not in a manual group, aggregate by HCP
+      ungroupedClinics.push(clinic)
+    }
+  })
+
+  // Group ungrouped clinics by HCP number (existing logic)
+  const grouped = ungroupedClinics.reduce((acc, clinic) => {
     const key = clinic.hcp_number
     if (!acc[key]) {
       acc[key] = []
@@ -45,6 +63,12 @@ export function aggregateClinicsByHCP(clinics: Clinic[]): AggregatedClinic[] {
     acc[key].push(clinic)
     return acc
   }, {} as Record<string, Clinic[]>)
+
+  // Merge manually grouped clinics into the grouped object
+  Object.entries(manuallyGrouped).forEach(([groupId, groupClinics]) => {
+    // Use a unique key for manual groups (prefix with 'group-')
+    grouped[`group-${groupId}`] = groupClinics
+  })
 
   // Aggregate each group
   return Object.values(grouped).map(clinicGroup => {

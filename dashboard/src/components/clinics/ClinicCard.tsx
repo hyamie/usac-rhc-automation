@@ -3,6 +3,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,7 @@ import { OutreachButton } from '@/components/OutreachButton'
 import { OutreachStatus } from '@/components/OutreachStatus'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { highlightSearchTerm } from '@/lib/search-highlight'
+import { useClinicSelection } from '@/contexts/ClinicSelectionContext'
 import type { Database, HistoricalFundingItem, NoteItem } from '@/types/database.types'
 import type { AggregatedClinic } from '@/lib/clinic-aggregation'
 import { MapPin, Calendar, DollarSign, FileText, Mail, Phone, User, Building2, Send, Tag, CheckCircle2, FileEdit } from 'lucide-react'
@@ -38,6 +40,10 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
   const [showLocations, setShowLocations] = useState(false)
   const [isTogglingPrimaryConsultant, setIsTogglingPrimaryConsultant] = useState(false)
   const [isTogglingMailConsultant, setIsTogglingMailConsultant] = useState(false)
+
+  // Selection state
+  const { isSelected, toggleClinic } = useClinicSelection()
+  const selected = isSelected(clinic.id)
 
   // Check if this is an aggregated clinic
   const isAggregated = 'application_count' in clinic && clinic.application_count > 1
@@ -116,10 +122,20 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
   return (
     <Card className={`
       hover:shadow-xl hover:-translate-y-1 transition-all duration-200
-      border-l-4 ${getStatusColor()}
-      group cursor-pointer
+      border-l-4 ${getStatusColor()} ${selected ? 'ring-2 ring-primary shadow-lg' : ''}
+      group cursor-pointer relative
     `}>
-      <CardHeader className="pb-4">
+      {/* Selection Checkbox */}
+      <div className="absolute top-3 left-3 z-10">
+        <Checkbox
+          checked={selected}
+          onCheckedChange={() => toggleClinic(clinic.id)}
+          className="h-5 w-5 border-2"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+
+      <CardHeader className="pb-4 pl-12">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-xl font-bold group-hover:text-primary transition-colors">

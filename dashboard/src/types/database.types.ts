@@ -64,6 +64,9 @@ export interface Database {
           notes: Json | null  // JSONB array of NoteItem objects
           email_draft_created: boolean
 
+          // Manual grouping
+          belongs_to_group_id: string | null
+
           // System timestamps
           created_at: string
           updated_at: string
@@ -218,6 +221,80 @@ export interface Database {
           read?: boolean
         }
         Relationships: []
+      }
+      clinic_groups: {
+        Row: {
+          id: string
+          group_name: string
+          primary_clinic_id: string | null
+          total_funding_amount: number | null
+          location_count: number | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          group_name: string
+          primary_clinic_id?: string | null
+          total_funding_amount?: number | null
+          location_count?: number | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          group_name?: string
+          primary_clinic_id?: string | null
+          total_funding_amount?: number | null
+          location_count?: number | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'clinic_groups_primary_clinic_id_fkey'
+            columns: ['primary_clinic_id']
+            referencedRelation: 'clinics_pending_review'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      clinic_group_members: {
+        Row: {
+          id: string
+          group_id: string
+          clinic_id: string
+          added_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          clinic_id: string
+          added_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          clinic_id?: string
+          added_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'clinic_group_members_group_id_fkey'
+            columns: ['group_id']
+            referencedRelation: 'clinic_groups'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'clinic_group_members_clinic_id_fkey'
+            columns: ['clinic_id']
+            referencedRelation: 'clinics_pending_review'
+            referencedColumns: ['id']
+          }
+        ]
       }
     }
     Views: {}
