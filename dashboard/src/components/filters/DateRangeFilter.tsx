@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, ChevronDown } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { format, startOfDay, subDays, addDays } from 'date-fns'
@@ -48,6 +48,21 @@ export function DateRangeFilter({ selectedDate, onChange, onRangeChange }: DateR
     }
   }
 
+  const handlePreviousDay = () => {
+    const prevDay = startOfDay(subDays(selectedDate, 1))
+    setMode('single')
+    onChange(prevDay)
+  }
+
+  const handleNextDay = () => {
+    const nextDay = startOfDay(addDays(selectedDate, 1))
+    const today = startOfDay(new Date())
+    if (nextDay <= today) {
+      setMode('single')
+      onChange(nextDay)
+    }
+  }
+
   const getDisplayText = () => {
     if (mode === 'yesterday' && isYesterday) {
       return 'Yesterday'
@@ -58,20 +73,32 @@ export function DateRangeFilter({ selectedDate, onChange, onRangeChange }: DateR
     }
   }
 
+  const canGoNext = startOfDay(addDays(selectedDate, 1)) <= startOfDay(new Date())
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className="flex items-center gap-2 min-w-[200px] justify-between"
-        >
-          <Calendar className="h-4 w-4 text-primary" />
-          <span className="flex-1 text-left text-sm font-medium">
-            {getDisplayText()}
-          </span>
-          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </Button>
-      </PopoverTrigger>
+    <div className="flex items-center gap-1">
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={handlePreviousDay}
+        className="h-10 w-10"
+        title="Previous day"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 min-w-[200px] justify-between"
+          >
+            <Calendar className="h-4 w-4 text-primary" />
+            <span className="flex-1 text-left text-sm font-medium">
+              {getDisplayText()}
+            </span>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          </Button>
+        </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <div className="p-3 space-y-2">
           {/* Quick Actions */}
@@ -128,5 +155,16 @@ export function DateRangeFilter({ selectedDate, onChange, onRangeChange }: DateR
         </div>
       </PopoverContent>
     </Popover>
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={handleNextDay}
+        disabled={!canGoNext}
+        className="h-10 w-10"
+        title="Next day"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
   )
 }
