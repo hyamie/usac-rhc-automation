@@ -21,12 +21,27 @@ export function FundingHistory({
       return [];
     }
 
-    return historicalFunding
+    // Filter valid items
+    const validItems = historicalFunding
       .filter((item): item is HistoricalFundingItem => {
         return item && typeof item === 'object' && 'year' in item && 'amount' in item;
-      })
+      });
+
+    // Aggregate amounts by year (sum duplicates)
+    const aggregatedByYear: Record<string, number> = {};
+    validItems.forEach(item => {
+      const year = item.year;
+      const amount = item.amount || 0;
+      if (!aggregatedByYear[year]) {
+        aggregatedByYear[year] = 0;
+      }
+      aggregatedByYear[year] += amount;
+    });
+
+    // Convert back to array and sort by year descending
+    return Object.entries(aggregatedByYear)
+      .map(([year, amount]) => ({ year, amount }))
       .sort((a, b) => {
-        // Sort by year descending (most recent first)
         const yearA = parseInt(a.year);
         const yearB = parseInt(b.year);
         return yearB - yearA;
@@ -89,7 +104,7 @@ export function FundingHistory({
             const change = prevAmount ? calculateChange(item.amount, prevAmount) : null;
 
             return (
-              <div key={item.year} className="flex-1">
+              <div key={`funding-${item.year}`} className="flex-1">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <div className="text-xs font-medium text-blue-600 mb-1">
                     FY {item.year}
@@ -136,7 +151,7 @@ export function FundingHistory({
 
           return (
             <div
-              key={item.year}
+              key={`funding-${item.year}`}
               className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg border border-gray-200"
             >
               <div className="flex items-center gap-2">
