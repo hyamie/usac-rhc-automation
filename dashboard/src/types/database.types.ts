@@ -304,10 +304,22 @@ export interface Database {
   }
 }
 
+// Helper type for location within funding year
+export interface FundingLocation {
+  frn: string           // Funding Request Number
+  amount: number        // Amount for this specific location
+  name: string          // Service delivery site name
+  street: string        // Service delivery site street
+  city: string          // Service delivery site city
+  state: string         // Service delivery site state
+  zip: string           // Service delivery site ZIP code
+}
+
 // Helper type for historical funding array items
 export interface HistoricalFundingItem {
   year: string
   amount: number
+  locations?: FundingLocation[]  // Optional for backward compatibility
 }
 
 // Helper type for notes array items

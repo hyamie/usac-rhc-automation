@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { TrendingUp, TrendingDown, Minus, DollarSign } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronDown, ChevronRight, MapPin, DollarSign } from 'lucide-react';
 import type { HistoricalFundingItem } from '@/types/database.types';
 
 interface FundingHistoryProps {
@@ -15,32 +15,40 @@ export function FundingHistory({
   layout = 'vertical',
   showTotal = true
 }: FundingHistoryProps) {
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
+
+  const toggleYear = (year: string) => {
+    setExpandedYears(prev => {
+      const next = new Set(prev);
+      if (next.has(year)) {
+        next.delete(year);
+      } else {
+        next.add(year);
+      }
+      return next;
+    });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   // Parse and validate historical funding data
   const fundingData = React.useMemo(() => {
     if (!historicalFunding || !Array.isArray(historicalFunding)) {
       return [];
     }
 
-    // Filter valid items
-    const validItems = historicalFunding
+    // Filter valid items and sort by year descending
+    return historicalFunding
       .filter((item): item is HistoricalFundingItem => {
         return item && typeof item === 'object' && 'year' in item && 'amount' in item;
-      });
-
-    // Aggregate amounts by year (sum duplicates)
-    const aggregatedByYear: Record<string, number> = {};
-    validItems.forEach(item => {
-      const year = item.year;
-      const amount = item.amount || 0;
-      if (!aggregatedByYear[year]) {
-        aggregatedByYear[year] = 0;
-      }
-      aggregatedByYear[year] += amount;
-    });
-
-    // Convert back to array and sort by year descending
-    return Object.entries(aggregatedByYear)
-      .map(([year, amount]) => ({ year, amount }))
+      })
       .sort((a, b) => {
         const yearA = parseInt(a.year);
         const yearB = parseInt(b.year);
@@ -56,41 +64,11 @@ export function FundingHistory({
     );
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
-
   const calculateTotal = () => {
     return fundingData.reduce((sum, item) => sum + (item.amount || 0), 0);
   };
 
-  const calculateChange = (current: number, previous: number) => {
-    if (!previous || previous === 0) return null;
-    return ((current - previous) / previous) * 100;
-  };
-
-  const renderChangeIndicator = (change: number | null) => {
-    if (change === null) return <Minus className="w-3 h-3 text-gray-400" />;
-    if (change > 0) return <TrendingUp className="w-3 h-3 text-green-600" />;
-    if (change < 0) return <TrendingDown className="w-3 h-3 text-red-600" />;
-    return <Minus className="w-3 h-3 text-gray-400" />;
-  };
-
-  const renderChangeText = (change: number | null) => {
-    if (change === null) return null;
-    const colorClass = change > 0 ? 'text-green-600' : change < 0 ? 'text-red-600' : 'text-gray-500';
-    return (
-      <span className={`text-xs font-medium ${colorClass}`}>
-        {change > 0 ? '+' : ''}{change.toFixed(1)}%
-      </span>
-    );
-  };
-
+  // Horizontal layout (for compatibility with existing usage)
   if (layout === 'horizontal') {
     return (
       <div className="space-y-2">
@@ -99,27 +77,23 @@ export function FundingHistory({
           <span>Historical Funding</span>
         </div>
         <div className="flex gap-4">
-          {fundingData.map((item, index) => {
-            const prevAmount = index < fundingData.length - 1 ? fundingData[index + 1]?.amount : null;
-            const change = prevAmount ? calculateChange(item.amount, prevAmount) : null;
-
-            return (
-              <div key={`funding-${item.year}`} className="flex-1">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="text-xs font-medium text-blue-600 mb-1">
-                    FY {item.year}
-                  </div>
-                  <div className="text-lg font-bold text-blue-900">
-                    {formatCurrency(item.amount)}
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    {renderChangeIndicator(change)}
-                    {renderChangeText(change)}
-                  </div>
+          {fundingData.map((item) => (
+            <div key={`funding-${item.year}`} className="flex-1">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="text-xs font-medium text-blue-600 mb-1">
+                  FY {item.year}
                 </div>
+                <div className="text-lg font-bold text-blue-900">
+                  {formatCurrency(item.amount)}
+                </div>
+                {item.locations && item.locations.length > 1 && (
+                  <div className="text-xs text-blue-600 mt-1">
+                    {item.locations.length} locations
+                  </div>
+                )}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
         {showTotal && fundingData.length > 1 && (
           <div className="bg-gray-100 border border-gray-300 rounded-lg p-3">
@@ -137,39 +111,90 @@ export function FundingHistory({
     );
   }
 
-  // Vertical layout
+  // Vertical layout with expandable locations
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
         <DollarSign className="w-4 h-4" />
         <span>Funding History</span>
       </div>
-      <div className="space-y-2">
-        {fundingData.map((item, index) => {
-          const prevAmount = index < fundingData.length - 1 ? fundingData[index + 1]?.amount : null;
-          const change = prevAmount ? calculateChange(item.amount, prevAmount) : null;
+
+      <div className="space-y-1">
+        {fundingData.map(item => {
+          const isExpanded = expandedYears.has(item.year);
+          const hasLocations = item.locations && item.locations.length > 0;
 
           return (
-            <div
-              key={`funding-${item.year}`}
-              className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg border border-gray-200"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-600 min-w-[60px]">
-                  FY {item.year}
-                </span>
-                <span className="text-sm font-bold text-gray-900">
+            <div key={item.year} className="border border-gray-200 rounded-md overflow-hidden">
+              {/* Year Row - Always Shown */}
+              <button
+                onClick={() => hasLocations && toggleYear(item.year)}
+                disabled={!hasLocations}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                  hasLocations
+                    ? 'cursor-pointer hover:bg-gray-50'
+                    : 'cursor-default bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {hasLocations ? (
+                    isExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                    )
+                  ) : (
+                    <div className="w-4 flex-shrink-0" /> {/* Spacer */}
+                  )}
+                  <span className="font-medium text-gray-900">FY {item.year}</span>
+                  {hasLocations && item.locations!.length > 1 && (
+                    <span className="text-xs text-gray-500">
+                      ({item.locations!.length} locations)
+                    </span>
+                  )}
+                </div>
+                <span className="font-semibold text-green-600">
                   {formatCurrency(item.amount)}
                 </span>
-              </div>
-              <div className="flex items-center gap-1">
-                {renderChangeIndicator(change)}
-                {renderChangeText(change)}
-              </div>
+              </button>
+
+              {/* Locations - Shown When Expanded */}
+              {isExpanded && hasLocations && (
+                <div className="border-t border-gray-200 bg-gray-50 px-3 py-2 space-y-2">
+                  {item.locations!.map((location, idx) => (
+                    <div
+                      key={location.frn || idx}
+                      className="flex items-start gap-2 text-xs"
+                    >
+                      <MapPin className="h-3 w-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900">
+                          {location.name}
+                        </div>
+                        <div className="text-gray-600">
+                          {location.street && <div>{location.street}</div>}
+                          <div>
+                            {location.city}
+                            {location.city && location.state && ', '}
+                            {location.state} {location.zip}
+                          </div>
+                        </div>
+                        {location.frn && (
+                          <div className="text-gray-500 mt-0.5">FRN: {location.frn}</div>
+                        )}
+                      </div>
+                      <div className="font-medium text-green-600 flex-shrink-0">
+                        {formatCurrency(location.amount)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
       {showTotal && fundingData.length > 1 && (
         <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-300">
           <span className="text-sm font-semibold text-gray-700">
