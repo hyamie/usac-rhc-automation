@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useClinics, type ClinicsFilters } from '@/hooks/use-clinics'
 import { ClinicCard } from './ClinicCard'
 import { ClinicCardSkeleton } from './ClinicCardSkeleton'
-import { SingleDayPicker } from '@/components/filters/SingleDayPicker'
+import { DateRangeFilter } from '@/components/filters/DateRangeFilter'
 import { ConsultantFilter } from '@/components/filters/ConsultantFilter'
 import { FundingYearFilter } from '@/components/filters/FundingYearFilter'
 import { StateFilter } from '@/components/filters/StateFilter'
@@ -12,7 +12,7 @@ import { ServiceTypeFilter } from '@/components/filters/ServiceTypeFilter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Search, Grid3x3, List, Columns2, FolderOpen, Map as MapIcon } from 'lucide-react'
-import { startOfDay, addDays } from 'date-fns'
+import { startOfDay, addDays, subDays } from 'date-fns'
 import dynamic from 'next/dynamic'
 import { aggregateClinicsByHCP } from '@/lib/clinic-aggregation'
 
@@ -26,7 +26,8 @@ type ViewMode = 'grid' | 'list' | 'compact' | 'map'
 
 export function ClinicList() {
   const [filters, setFilters] = useState<ClinicsFilters>({})
-  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()))
+  // Default to yesterday since data is pulled from previous day
+  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(subDays(new Date(), 1)))
   const [consultantFilter, setConsultantFilter] = useState<'all' | 'direct' | 'consultant'>('all')
   const [fundingYear, setFundingYear] = useState<'all' | '2025' | '2026'>('all')
   const [stateFilter, setStateFilter] = useState<'all' | string>('all')
@@ -44,6 +45,17 @@ export function ClinicList() {
     if (!clinics) return []
     return aggregateClinicsByHCP(clinics)
   }, [clinics])
+
+  // Initialize filters with yesterday's date on mount
+  useEffect(() => {
+    const yesterday = startOfDay(subDays(new Date(), 1))
+    const dateFrom = yesterday.toISOString()
+    const dateTo = addDays(yesterday, 1).toISOString()
+    setFilters({
+      dateFrom,
+      dateTo,
+    })
+  }, []) // Empty dependency array = run once on mount
 
   // Debounce search input (500ms delay)
   useEffect(() => {
@@ -83,6 +95,15 @@ export function ClinicList() {
       ...prev,
       dateFrom,
       dateTo,
+    }))
+  }
+
+  const handleDateRangeChange = (from: Date, to: Date) => {
+    setSelectedDate(from) // Display the start date
+    setFilters((prev) => ({
+      ...prev,
+      dateFrom: from.toISOString(),
+      dateTo: to.toISOString(),
     }))
   }
 
@@ -153,9 +174,10 @@ export function ClinicList() {
           onChange={handleConsultantFilterChange}
           counts={consultantCounts}
         />
-        <SingleDayPicker
-          value={selectedDate}
+        <DateRangeFilter
+          selectedDate={selectedDate}
           onChange={handleDateChange}
+          onRangeChange={handleDateRangeChange}
         />
       </div>
 

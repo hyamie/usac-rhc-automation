@@ -35,6 +35,7 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
   const [showContacts, setShowContacts] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [showOutreach, setShowOutreach] = useState(false)
+  const [showLocations, setShowLocations] = useState(false)
   const [isTogglingPrimaryConsultant, setIsTogglingPrimaryConsultant] = useState(false)
   const [isTogglingMailConsultant, setIsTogglingMailConsultant] = useState(false)
 
@@ -196,6 +197,51 @@ export function ClinicCard({ clinic, onUpdate, searchTerm = '' }: ClinicCardProp
             {clinic.city}, {clinic.state} {clinic.zip}
           </span>
         </div>
+
+        {/* Multiple Locations Button (for aggregated clinics) */}
+        {isAggregated && aggregatedClinic && aggregatedClinic.locations.length > 1 && (
+          <div className="mt-3 pt-3 border-t">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowLocations(!showLocations)}
+              className="w-full mb-2"
+            >
+              <Building2 className="h-4 w-4 mr-2" />
+              {showLocations ? 'Hide' : 'Show'} All Locations ({aggregatedClinic.locations.length})
+            </Button>
+            {showLocations && (
+              <div className="space-y-2">
+                {aggregatedClinic.locations.map((location, index) => (
+                  <div
+                    key={`${location.application_number}-${index}`}
+                    className="bg-muted/50 rounded-lg p-3 space-y-1"
+                  >
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-3 w-3 text-primary" />
+                      <span className="font-medium">
+                        {location.address}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground pl-5">
+                      {location.city}, {location.state} {location.zip}
+                    </div>
+                    {location.application_number && (
+                      <div className="text-xs text-muted-foreground pl-5">
+                        App: {location.application_number}
+                      </div>
+                    )}
+                    {location.filing_date && (
+                      <div className="text-xs text-muted-foreground pl-5">
+                        Filed: {formatDate(location.filing_date)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filing Date */}
         {clinic.filing_date && (

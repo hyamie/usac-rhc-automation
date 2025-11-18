@@ -11,6 +11,15 @@ export interface AggregatedFunding {
   [year: string]: number
 }
 
+export interface LocationInfo {
+  address: string
+  city: string
+  state: string
+  zip: string
+  application_number?: string
+  filing_date?: string
+}
+
 export interface AggregatedClinic extends Omit<Clinic, 'id' | 'application_number'> {
   hcp_number: string
   clinic_name: string
@@ -18,6 +27,7 @@ export interface AggregatedClinic extends Omit<Clinic, 'id' | 'application_numbe
   application_numbers: string[]
   aggregated_funding: AggregatedFunding
   total_funding: number
+  locations: LocationInfo[]
   // Keep other fields from first clinic
 }
 
@@ -45,6 +55,16 @@ export function aggregateClinicsByHCP(clinics: Clinic[]): AggregatedClinic[] {
     const applicationNumbers = clinicGroup
       .map(c => c.application_number)
       .filter(Boolean) as string[]
+
+    // Collect all unique locations
+    const locations: LocationInfo[] = clinicGroup.map(clinic => ({
+      address: clinic.address || '',
+      city: clinic.city || '',
+      state: clinic.state || '',
+      zip: clinic.zip || '',
+      application_number: clinic.application_number || undefined,
+      filing_date: clinic.filing_date || undefined,
+    }))
 
     // Aggregate historical funding by year
     const fundingByYear: AggregatedFunding = {}
@@ -76,6 +96,7 @@ export function aggregateClinicsByHCP(clinics: Clinic[]): AggregatedClinic[] {
       application_numbers: applicationNumbers,
       aggregated_funding: fundingByYear,
       total_funding: totalFunding,
+      locations: locations,
     }
   })
 }
