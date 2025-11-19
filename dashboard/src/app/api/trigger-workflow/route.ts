@@ -61,36 +61,46 @@ export async function POST(request: NextRequest) {
         const hashString = `${data.hcp_number}-${data.posting_start_date}-${data.hcp_name}-${data.site_address_line_1}`
         const hash = crypto.createHash('sha256').update(hashString).digest('hex')
 
-        // Build clinic record
+        // Build clinic record matching exact database schema
         const clinic = {
           hcp_number: data.hcp_number,
-          application_number: data.application_number,
-          form_465_hash: hash,
           clinic_name: data.hcp_name,
           address: data.site_address_line_1,
           city: data.site_city,
           state: data.site_state,
-          zip: data.site_zip_code,
-          contact_name: data.contact_first_name && data.contact_last_name
-            ? `${data.contact_first_name} ${data.contact_last_name}`
-            : null,
-          contact_email: contactEmail || null,
-          contact_phone: data.contact_phone || null,
-          mail_contact_name: data.mail_contact_first_name && data.mail_contact_last_name
-            ? `${data.mail_contact_first_name} ${data.mail_contact_last_name}`
-            : null,
-          mail_contact_email: mailContactEmail || null,
-          mail_contact_company: data.mail_contact_organization_name || null,
-          is_consultant: isConsultant,
-          consultant_company: isConsultant ? data.mail_contact_organization_name : null,
-          consultant_email_domain: isConsultant ? mailDomain : null,
-          consultant_detection_method: isConsultant ? 'auto_domain' : null,
           filing_date: data.posting_start_date,
-          program_type: 'Telecom',
+          form_465_hash: hash,
           service_type: data.request_for_services || null,
-          description_of_services: data.description_of_services_requested || null,
+          contract_length: data.requested_contract_period || null,
+          bandwidth: null,
+          contact_name: null,
+          contact_email: null,
+          processed: false,
+          assigned_to: null,
+          email_draft_created: false,
+          notes: [],
           form_465_pdf_url: data.link_to_fcc_form_pdf || null,
-          processed: false
+          posting_date: data.posting_start_date,
+          allowable_contract_start_date: data.allowable_contract_start_date || null,
+          program_type: null,
+          mail_contact_name: null,
+          mail_contact_email: mailContactEmail || null,
+          mail_contact_company: null,
+          description_of_services: data.description_of_services_requested || null,
+          application_number: data.application_number,
+          zip: data.site_zip_code,
+          contact_phone: null,
+          additional_documents: null,
+          funding_year: data.funding_year || null,
+          application_type: data.applicant_type || null,
+          mail_contact_first_name: data.mail_contact_first_name || null,
+          mail_contact_last_name: data.mail_contact_last_name || null,
+          mail_contact_org_name: data.mail_contact_organization_name || null,
+          mail_contact_phone: data.mail_contact_phone || null,
+          historical_funding: null,
+          outreach_status: 'pending',
+          mail_contact_is_consultant: isConsultant,
+          contact_is_consultant: false
         }
 
         // Insert into Supabase (will skip if hash already exists due to unique constraint)
