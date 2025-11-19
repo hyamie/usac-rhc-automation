@@ -20,6 +20,7 @@ const SERVICE_TYPES = [
   { value: 'Data Circuit', label: 'Data Circuit' },
   { value: 'Bundled Services', label: 'Bundled Services' },
   { value: 'Dark Fiber', label: 'Dark Fiber' },
+  { value: 'Other', label: 'Other' },
 ];
 
 export function ServiceTypeFilter({
