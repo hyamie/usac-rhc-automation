@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
           filing_date: data.posting_start_date,
           form_465_hash: hash,
           service_type: data.request_for_services || data.service_type || null,
+          request_for_services: data.request_for_services || null,
           contract_length: data.requested_contract_period || data.contract_length || null,
           bandwidth: null,
           contact_name: null,
