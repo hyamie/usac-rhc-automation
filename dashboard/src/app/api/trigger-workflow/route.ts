@@ -91,7 +91,6 @@ export async function POST(request: NextRequest) {
           description_of_services: data.description_of_services_requested || null,
           form_465_pdf_url: data.link_to_fcc_form_pdf || null,
           processed: false,
-          enriched: false,
           priority_score: 50,
           priority_label: 'Medium'
         }
