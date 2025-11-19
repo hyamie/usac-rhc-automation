@@ -90,9 +90,7 @@ export async function POST(request: NextRequest) {
           service_type: data.request_for_services || null,
           description_of_services: data.description_of_services_requested || null,
           form_465_pdf_url: data.link_to_fcc_form_pdf || null,
-          processed: false,
-          priority_score: 50,
-          priority_label: 'Medium'
+          processed: false
         }
 
         // Insert into Supabase (will skip if hash already exists due to unique constraint)
