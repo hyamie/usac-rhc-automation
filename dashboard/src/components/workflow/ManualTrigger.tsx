@@ -134,7 +134,23 @@ export function ManualTrigger() {
                   <p className="text-green-600"><strong>Inserted:</strong> {result.summary.inserted} new records</p>
                   <p className="text-blue-600"><strong>Skipped:</strong> {result.summary.skipped} duplicates</p>
                   {result.summary.errors > 0 && (
-                    <p className="text-red-600"><strong>Errors:</strong> {result.summary.errors} records</p>
+                    <div className="text-red-600 space-y-2 mt-2">
+                      <p><strong>Errors:</strong> {result.summary.errors} records</p>
+                      {result.details?.errors && result.details.errors.length > 0 && (
+                        <div className="mt-2 max-h-60 overflow-y-auto text-xs bg-red-50 p-2 rounded">
+                          <p className="font-semibold mb-2">Error Details (showing first 5):</p>
+                          {result.details.errors.slice(0, 5).map((err: any, idx: number) => (
+                            <div key={idx} className="mb-2 p-2 bg-white rounded border border-red-200">
+                              <p><strong>HCP:</strong> {err.hcp_number}</p>
+                              <p className="mt-1"><strong>Error:</strong> {typeof err.error === 'string' ? err.error : JSON.stringify(err.error)}</p>
+                            </div>
+                          ))}
+                          {result.details.errors.length > 5 && (
+                            <p className="mt-2 italic">...and {result.details.errors.length - 5} more errors</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               ) : (
