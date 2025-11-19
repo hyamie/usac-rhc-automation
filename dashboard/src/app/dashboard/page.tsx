@@ -1,5 +1,6 @@
 import { AlertBanner } from '@/components/alerts/AlertBanner'
 import { ClinicList } from '@/components/clinics/ClinicList'
+import { ManualTrigger } from '@/components/workflow/ManualTrigger'
 
 export default function DashboardPage() {
   return (
@@ -14,6 +15,9 @@ export default function DashboardPage() {
 
       {/* Alerts Section */}
       <AlertBanner />
+
+      {/* Manual Workflow Trigger */}
+      <ManualTrigger />
 
       {/* Clinics Section */}
       <div className="space-y-6">
